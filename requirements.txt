@@ -1,3 +1,8 @@
-flask
-requests
-gunicorn
+flask>=3.0
+flask-socketio>=5.3
+flask-sqlalchemy>=3.1
+flask-login>=0.6
+werkzeug>=3.0
+requests>=2.31
+cryptography>=42.0
+eventlet>=0.36

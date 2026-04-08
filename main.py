@@ -4,89 +4,85 @@ import requests
 import threading
 import time
 import uuid
-from flask import Flask, render_template, jsonify, request
+from datetime import datetime
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
+from flask_socketio import SocketIO, join_room, leave_room, emit
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import (
+    LoginManager, UserMixin, login_user, logout_user,
+    login_required, current_user
+)
+from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional
+from cryptography.fernet import Fernet
+import base64, hashlib
 
+# ─────────────────────────────────────────────
+#  APP INIT
+# ─────────────────────────────────────────────
 app = Flask(__name__)
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "mc-admin-super-secret-key-change-in-prod")
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///mcadmin.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-SERVERS_FILE = os.path.join(os.path.dirname(__file__), "servers.json")
+db = SQLAlchemy(app)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
+
 REFRESH_INTERVAL = 15
 
 # ─────────────────────────────────────────────
-#  ДЕФОЛТНІ СЕРВЕРИ
+#  ENCRYPTION HELPERS (API keys)
 # ─────────────────────────────────────────────
-DEFAULT_SERVERS = [
-    {
-        "id": "01",
-        "name": "Proxy",
-        "icon": "🏰",
-        "panel_url": "https://control.play2go.cloud",
-        "api_key": "ptlc_XC09SlXfWdzsxsb6ZImsYazn2MtswQ8pGKf9SHaKpmZ",
-        "server_id": "641e86e4",
-    },
-    {
-        "id": "02",
-        "name": "Lobby",
-        "icon": "🔥",
-        "panel_url": "https://control.play2go.cloud",
-        "api_key": "ptlc_XC09SlXfWdzsxsb6ZImsYazn2MtswQ8pGKf9SHaKpmZ",
-        "server_id": "c8b88e55",
-    },
-    {
-        "id": "03",
-        "name": "Grief-1",
-        "icon": "⚔",
-        "panel_url": "https://control.play2go.cloud",
-        "api_key": "ptlc_XC09SlXfWdzsxsb6ZImsYazn2MtswQ8pGKf9SHaKpmZ",
-        "server_id": "90001ca4",
-    },
-    {
-        "id": "04",
-        "name": "Grief-2",
-        "icon": "⚔",
-        "panel_url": "https://panel.prismex.host",
-        "api_key": "ptlc_OlXKcJevfr1XWTX1BZP5aunEV13vcjrRMOoS6i8ZOjz",
-        "server_id": "b1c83467",
-    },
-]
+def _get_fernet() -> Fernet:
+    raw = app.config["SECRET_KEY"].encode()
+    key = base64.urlsafe_b64encode(hashlib.sha256(raw).digest())
+    return Fernet(key)
+
+def encrypt_key(plain: str) -> str:
+    return _get_fernet().encrypt(plain.encode()).decode()
+
+def decrypt_key(token: str) -> str:
+    try:
+        return _get_fernet().decrypt(token.encode()).decode()
+    except Exception:
+        return token  # fallback for already-plain keys
 
 # ─────────────────────────────────────────────
-#  ЖИВИЙ СПИСОК СЕРВЕРІВ
+#  DATABASE MODELS
 # ─────────────────────────────────────────────
-SERVERS: list = []
-servers_lock = threading.Lock()
+class User(UserMixin, db.Model):
+    __tablename__ = "users"
+    id       = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(256), nullable=False)
+    created  = db.Column(db.DateTime, default=datetime.utcnow)
+    servers  = db.relationship("Server", backref="owner", lazy=True, cascade="all, delete-orphan")
 
+class Server(db.Model):
+    __tablename__ = "servers"
+    id        = db.Column(db.String(16), primary_key=True)
+    user_id   = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    name      = db.Column(db.String(80), nullable=False)
+    icon      = db.Column(db.String(8), default="🖥️")
+    panel_url = db.Column(db.String(256), nullable=False)
+    api_key   = db.Column(db.Text, nullable=False)    # stored encrypted
+    server_id = db.Column(db.String(64), nullable=False)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
+# ─────────────────────────────────────────────
+#  IN-MEMORY STATUS CACHE
+# ─────────────────────────────────────────────
 SERVERS_DATA: dict = {}
 data_lock = threading.Lock()
-
-
-# ─────────────────────────────────────────────
-#  РОБОТА З ФАЙЛОМ servers.json
-# ─────────────────────────────────────────────
-def load_servers_from_file() -> list:
-    if not os.path.exists(SERVERS_FILE):
-        save_servers_to_file(DEFAULT_SERVERS)
-        return list(DEFAULT_SERVERS)
-    try:
-        with open(SERVERS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return list(DEFAULT_SERVERS)
-
-
-def save_servers_to_file(servers: list) -> None:
-    with open(SERVERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(servers, f, ensure_ascii=False, indent=2)
-
 
 # ─────────────────────────────────────────────
 #  HELPERS
 # ─────────────────────────────────────────────
-def get_server_by_id(server_id: str) -> Optional[dict]:
-    with servers_lock:
-        return next((s for s in SERVERS if s["id"] == server_id), None)
-
-
 def ptero_headers(api_key: str) -> dict:
     return {
         "Authorization": f"Bearer {api_key}",
@@ -95,18 +91,17 @@ def ptero_headers(api_key: str) -> dict:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
 
-
-def fetch_server_resources(server: dict) -> dict:
-    url = f"{server['panel_url']}/api/client/servers/{server['server_id']}/resources"
+def fetch_server_resources(server: Server) -> dict:
+    api_key = decrypt_key(server.api_key)
+    url = f"{server.panel_url}/api/client/servers/{server.server_id}/resources"
     try:
-        resp = requests.get(url, headers=ptero_headers(server["api_key"]), timeout=10)
+        resp = requests.get(url, headers=ptero_headers(api_key), timeout=10)
         if resp.status_code == 403:
-            print(f"[403 ERROR] GET {url}\nResponse: {resp.text}\n")
+            print(f"[403] GET {url} → {resp.text}")
         resp.raise_for_status()
-        data = resp.json()
-        attrs = data.get("attributes", {})
+        attrs = resp.json().get("attributes", {})
         state = attrs.get("current_state", "offline")
-        res = attrs.get("resources", {})
+        res   = attrs.get("resources", {})
         return {
             "ok": True,
             "state": state,
@@ -124,38 +119,21 @@ def fetch_server_resources(server: dict) -> dict:
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
-
-def refresh_server_now(server: dict) -> dict:
-    """Негайно оновлює кеш для одного сервера і повертає свіжі дані."""
+def refresh_server_now(server: Server) -> dict:
     result = fetch_server_resources(server)
     with data_lock:
-        SERVERS_DATA[server["id"]] = result
+        SERVERS_DATA[server.id] = result
+    # Push live update over socket to the server's room
+    socketio.emit("status_update", {"id": server.id, **result}, room=f"server_{server.id}")
     return result
 
-
-def force_update(server_id: str) -> dict:
-    """
-    Ініціює примусове оновлення статусу конкретного сервера поза фоновим циклом.
-    Знаходить сервер за ID, одразу оновлює SERVERS_DATA і повертає свіжі дані.
-    Якщо сервер не знайдено — повертає помилку.
-    """
-    server = get_server_by_id(server_id)
-    if not server:
-        return {"ok": False, "error": "Сервер не знайдено"}
-    return refresh_server_now(server)
-
-
-def send_power_action(server: dict, action: str) -> dict:
-    url = f"{server['panel_url']}/api/client/servers/{server['server_id']}/power"
+def send_power_action(server: Server, action: str) -> dict:
+    api_key = decrypt_key(server.api_key)
+    url = f"{server.panel_url}/api/client/servers/{server.server_id}/power"
     try:
-        resp = requests.post(
-            url,
-            headers=ptero_headers(server["api_key"]),
-            json={"signal": action},
-            timeout=10,
-        )
+        resp = requests.post(url, headers=ptero_headers(api_key), json={"signal": action}, timeout=10)
         if resp.status_code == 403:
-            print(f"[403 ERROR] POST {url}\nResponse: {resp.text}\n")
+            print(f"[403] POST {url} → {resp.text}")
         if resp.status_code == 204:
             return {"ok": True}
         resp.raise_for_status()
@@ -163,18 +141,13 @@ def send_power_action(server: dict, action: str) -> dict:
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
-
-def send_console_command(server: dict, command: str) -> dict:
-    url = f"{server['panel_url']}/api/client/servers/{server['server_id']}/command"
+def send_console_command(server: Server, command: str) -> dict:
+    api_key = decrypt_key(server.api_key)
+    url = f"{server.panel_url}/api/client/servers/{server.server_id}/command"
     try:
-        resp = requests.post(
-            url,
-            headers=ptero_headers(server["api_key"]),
-            json={"command": command},
-            timeout=10,
-        )
+        resp = requests.post(url, headers=ptero_headers(api_key), json={"command": command}, timeout=10)
         if resp.status_code == 403:
-            print(f"[403 ERROR] POST {url}\nResponse: {resp.text}\n")
+            print(f"[403] POST {url} → {resp.text}")
         if resp.status_code == 204:
             return {"ok": True}
         resp.raise_for_status()
@@ -182,137 +155,215 @@ def send_console_command(server: dict, command: str) -> dict:
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+def get_pterodactyl_websocket_token(server: Server) -> Optional[dict]:
+    """Fetch websocket credentials from Pterodactyl API."""
+    api_key = decrypt_key(server.api_key)
+    url = f"{server.panel_url}/api/client/servers/{server.server_id}/websocket"
+    try:
+        resp = requests.get(url, headers=ptero_headers(api_key), timeout=10)
+        resp.raise_for_status()
+        data = resp.json().get("data", {})
+        return {"token": data.get("token"), "socket": data.get("socket")}
+    except Exception as e:
+        return None
 
 # ─────────────────────────────────────────────
-#  BACKGROUND WORKER — фоновий цикл кожні 15 с
+#  BACKGROUND WORKER
 # ─────────────────────────────────────────────
 def background_worker():
+    time.sleep(2)  # let app init fully
     while True:
-        with servers_lock:
-            snapshot = list(SERVERS)
-
-        for server in snapshot:
+        with app.app_context():
+            servers = Server.query.all()
+        for server in servers:
             try:
                 result = fetch_server_resources(server)
             except Exception as e:
                 result = {"ok": False, "error": str(e)}
-
             with data_lock:
-                SERVERS_DATA[server["id"]] = result
-
+                SERVERS_DATA[server.id] = result
+            # Push real-time update
+            socketio.emit("status_update", {"id": server.id, **result}, room=f"server_{server.id}")
         time.sleep(REFRESH_INTERVAL)
-
-
-# ─────────────────────────────────────────────
-#  ІНІЦІАЛІЗАЦІЯ
-# ─────────────────────────────────────────────
-loaded = load_servers_from_file()
-SERVERS.extend(loaded)
-for s in loaded:
-    SERVERS_DATA[s["id"]] = {"ok": None, "state": "pending"}
 
 worker_thread = threading.Thread(target=background_worker, daemon=True)
 worker_thread.start()
 
+# ─────────────────────────────────────────────
+#  SOCKET.IO EVENTS
+# ─────────────────────────────────────────────
+@socketio.on("subscribe")
+def on_subscribe(data):
+    """Client subscribes to status updates for a server."""
+    server_id = data.get("server_id")
+    join_room(f"server_{server_id}")
+
+@socketio.on("unsubscribe")
+def on_unsubscribe(data):
+    server_id = data.get("server_id")
+    leave_room(f"server_{server_id}")
+
+@socketio.on("request_ws_token")
+def on_request_ws_token(data):
+    """Return Pterodactyl websocket credentials to the requesting client."""
+    server_id = data.get("server_id")
+    if not current_user.is_authenticated:
+        emit("ws_token", {"error": "Unauthorized"})
+        return
+    server = Server.query.filter_by(id=server_id, user_id=current_user.id).first()
+    if not server:
+        emit("ws_token", {"error": "Not found"})
+        return
+    creds = get_pterodactyl_websocket_token(server)
+    if creds:
+        emit("ws_token", {"server_id": server_id, **creds})
+    else:
+        emit("ws_token", {"error": "Не вдалося отримати WebSocket токен"})
 
 # ─────────────────────────────────────────────
-#  FLASK ROUTES — ОСНОВНІ
+#  FLASK ROUTES — AUTH
 # ─────────────────────────────────────────────
 @app.route("/")
+@login_required
 def index():
-    with servers_lock:
-        servers_meta = [{"id": s["id"], "name": s["name"], "icon": s["icon"]} for s in SERVERS]
-    return render_template("index.html", servers=servers_meta)
+    servers = Server.query.filter_by(user_id=current_user.id).all()
+    servers_meta = [{"id": s.id, "name": s.name, "icon": s.icon} for s in servers]
+    # seed pending status
+    for s in servers:
+        with data_lock:
+            if s.id not in SERVERS_DATA:
+                SERVERS_DATA[s.id] = {"ok": None, "state": "pending"}
+    return render_template("index.html", servers=servers_meta, username=current_user.username)
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        data = request.get_json() or request.form
+        username = (data.get("username") or "").strip()
+        password = (data.get("password") or "").strip()
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password, password):
+            login_user(user, remember=True)
+            if request.is_json:
+                return jsonify({"ok": True})
+            return redirect(url_for("index"))
+        if request.is_json:
+            return jsonify({"ok": False, "error": "Невірний логін або пароль"}), 401
+        return render_template("login.html", error="Невірний логін або пароль")
+    return render_template("login.html")
 
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        data = request.get_json() or request.form
+        username = (data.get("username") or "").strip()
+        password = (data.get("password") or "").strip()
+        if not username or not password:
+            msg = "Заповни всі поля"
+            if request.is_json:
+                return jsonify({"ok": False, "error": msg}), 400
+            return render_template("login.html", tab="register", error=msg)
+        if len(password) < 6:
+            msg = "Пароль мінімум 6 символів"
+            if request.is_json:
+                return jsonify({"ok": False, "error": msg}), 400
+            return render_template("login.html", tab="register", error=msg)
+        if User.query.filter_by(username=username).first():
+            msg = "Ім'я вже зайнято"
+            if request.is_json:
+                return jsonify({"ok": False, "error": msg}), 400
+            return render_template("login.html", tab="register", error=msg)
+        user = User(username=username, password=generate_password_hash(password))
+        db.session.add(user)
+        db.session.commit()
+        login_user(user, remember=True)
+        if request.is_json:
+            return jsonify({"ok": True})
+        return redirect(url_for("index"))
+    return render_template("login.html", tab="register")
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
+
+# ─────────────────────────────────────────────
+#  FLASK ROUTES — STATUS
+# ─────────────────────────────────────────────
 @app.route("/api/status/<server_id>")
+@login_required
 def api_status(server_id: str):
-    server = get_server_by_id(server_id)
+    server = Server.query.filter_by(id=server_id, user_id=current_user.id).first()
     if not server:
         return jsonify({"ok": False, "error": "Сервер не знайдено"}), 404
-
     with data_lock:
         data = SERVERS_DATA.get(server_id)
-
     if data is None or data.get("state") == "pending":
         return jsonify({"ok": None, "state": "pending", "error": "Оновлення..."})
-
     return jsonify(data)
 
-
 @app.route("/api/status/all")
+@login_required
 def api_status_all():
+    servers = Server.query.filter_by(user_id=current_user.id).all()
     with data_lock:
         snapshot = dict(SERVERS_DATA)
-
-    with servers_lock:
-        ids = [s["id"] for s in SERVERS]
-
     result = {}
-    for sid in ids:
-        entry = snapshot.get(sid)
+    for s in servers:
+        entry = snapshot.get(s.id)
         if entry is None or entry.get("state") == "pending":
-            result[sid] = {"ok": None, "state": "pending", "error": "Оновлення..."}
+            result[s.id] = {"ok": None, "state": "pending", "error": "Оновлення..."}
         else:
-            result[sid] = entry
+            result[s.id] = entry
     return jsonify(result)
-
 
 # ─────────────────────────────────────────────
 #  FLASK ROUTES — POWER / COMMAND
-#  Після команди: 1 с затримка → force_update → свіжий статус у відповіді
 # ─────────────────────────────────────────────
 @app.route("/api/power/<server_id>", methods=["POST"])
+@login_required
 def api_power(server_id: str):
-    server = get_server_by_id(server_id)
+    server = Server.query.filter_by(id=server_id, user_id=current_user.id).first()
     if not server:
         return jsonify({"ok": False, "error": "Сервер не знайдено"}), 404
-
     action = (request.json or {}).get("action")
     if action not in ("start", "stop", "restart", "kill"):
         return jsonify({"ok": False, "error": "Невідома дія"}), 400
-
-    # Відправляємо команду на панель
     result = send_power_action(server, action)
     if not result["ok"]:
         return jsonify(result)
-
-    # Панелі потрібна мить, щоб змінити стан — чекаємо 1 с
     time.sleep(1)
-
-    # force_update: примусово отримуємо свіжий стан поза фоновим циклом
-    # і одразу записуємо в SERVERS_DATA
-    fresh = force_update(server_id)
-
+    fresh = refresh_server_now(server)
     return jsonify({"ok": True, "status": fresh})
 
-
 @app.route("/api/command/<server_id>", methods=["POST"])
+@login_required
 def api_command(server_id: str):
-    server = get_server_by_id(server_id)
+    server = Server.query.filter_by(id=server_id, user_id=current_user.id).first()
     if not server:
         return jsonify({"ok": False, "error": "Сервер не знайдено"}), 404
-
     command = (request.json or {}).get("command", "").strip()
     if not command:
         return jsonify({"ok": False, "error": "Команда порожня"}), 400
-
     result = send_console_command(server, command)
     if not result["ok"]:
         return jsonify(result)
-
-    # Команди не змінюють state — повертаємо поточний кешований стан
     with data_lock:
         fresh = SERVERS_DATA.get(server_id, {"ok": None, "state": "pending"})
     return jsonify({"ok": True, "status": fresh})
 
-
 # ─────────────────────────────────────────────
-#  FLASK ROUTES — CRUD СЕРВЕРІВ
+#  FLASK ROUTES — CRUD SERVERS
 # ─────────────────────────────────────────────
 @app.route("/api/servers/add", methods=["POST"])
+@login_required
 def api_servers_add():
-    body = request.json or {}
+    body      = request.json or {}
     name      = body.get("name", "").strip()
     icon      = body.get("icon", "").strip() or "🖥️"
     panel_url = body.get("panel_url", "").strip().rstrip("/")
@@ -322,51 +373,58 @@ def api_servers_add():
     if not all([name, panel_url, api_key, server_id]):
         return jsonify({"ok": False, "error": "Заповни всі обов'язкові поля"}), 400
 
-    new_server = {
-        "id": uuid.uuid4().hex[:8],
-        "name": name,
-        "icon": icon,
-        "panel_url": panel_url,
-        "api_key": api_key,
-        "server_id": server_id,
-    }
-
-    with servers_lock:
-        SERVERS.append(new_server)
-        save_servers_to_file(SERVERS)
-
-    # Відразу отримуємо перший статус у фоні, не блокуючи відповідь
-    def _first_fetch():
-        result = fetch_server_resources(new_server)
-        with data_lock:
-            SERVERS_DATA[new_server["id"]] = result
+    new_id = uuid.uuid4().hex[:8]
+    new_server = Server(
+        id=new_id,
+        user_id=current_user.id,
+        name=name,
+        icon=icon,
+        panel_url=panel_url,
+        api_key=encrypt_key(api_key),
+        server_id=server_id,
+    )
+    db.session.add(new_server)
+    db.session.commit()
 
     with data_lock:
-        SERVERS_DATA[new_server["id"]] = {"ok": None, "state": "pending"}
+        SERVERS_DATA[new_id] = {"ok": None, "state": "pending"}
+
+    def _first_fetch():
+        with app.app_context():
+            srv = db.session.get(Server, new_id)
+            if srv:
+                result = fetch_server_resources(srv)
+                with data_lock:
+                    SERVERS_DATA[new_id] = result
+                socketio.emit("status_update", {"id": new_id, **result}, room=f"server_{new_id}")
 
     threading.Thread(target=_first_fetch, daemon=True).start()
 
-    return jsonify({"ok": True, "server": {
-        "id": new_server["id"],
-        "name": new_server["name"],
-        "icon": new_server["icon"],
-    }})
-
+    return jsonify({"ok": True, "server": {"id": new_id, "name": name, "icon": icon}})
 
 @app.route("/api/servers/delete/<server_id>", methods=["DELETE"])
+@login_required
 def api_servers_delete(server_id: str):
-    with servers_lock:
-        before = len(SERVERS)
-        SERVERS[:] = [s for s in SERVERS if s["id"] != server_id]
-        if len(SERVERS) == before:
-            return jsonify({"ok": False, "error": "Сервер не знайдено"}), 404
-        save_servers_to_file(SERVERS)
-
+    server = Server.query.filter_by(id=server_id, user_id=current_user.id).first()
+    if not server:
+        return jsonify({"ok": False, "error": "Сервер не знайдено"}), 404
+    db.session.delete(server)
+    db.session.commit()
     with data_lock:
         SERVERS_DATA.pop(server_id, None)
-
     return jsonify({"ok": True})
 
+# ─────────────────────────────────────────────
+#  INIT DB + RUN
+# ─────────────────────────────────────────────
+with app.app_context():
+    db.create_all()
+    # Seed pending for existing servers
+    servers = Server.query.all()
+    for s in servers:
+        with data_lock:
+            if s.id not in SERVERS_DATA:
+                SERVERS_DATA[s.id] = {"ok": None, "state": "pending"}
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8080)
+    socketio.run(app, debug=True, host="0.0.0.0", port=8080)
