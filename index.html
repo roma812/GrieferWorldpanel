@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MC Admin Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --surface: #10141c;
+      --surface2: #161b26;
+      --border: #1e2535;
+      --accent: #00e5ff;
+      --accent2: #7c3aed;
+      --green: #22d37a;
+      --red: #ff4757;
+      --yellow: #ffd32a;
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .mono { font-family: 'Space Mono', monospace; }
+
+    .header-glow {
+      text-shadow: 0 0 30px rgba(0,229,255,.6), 0 0 60px rgba(0,229,255,.25);
+    }
+
+    /* ── CARD ── */
+    .server-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      transition: border-color .3s, transform .25s, box-shadow .3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .server-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .server-card:hover { border-color: rgba(0,229,255,.35); transform: translateY(-3px); box-shadow: 0 20px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(0,229,255,.1); }
+    .server-card:hover::before { opacity: 1; }
+
+    /* ── STATUS ── */
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .status-online   { background: var(--green);  box-shadow: 0 0 8px var(--green);  animation: pulse-green 2s infinite; }
+    .status-offline  { background: var(--red);    box-shadow: 0 0 8px var(--red); }
+    .status-starting { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: pulse-yellow 1s infinite; }
+    .status-stopping { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: pulse-yellow 1s infinite; }
+    .status-error    { background: var(--muted); }
+
+    @keyframes pulse-green  { 0%,100% { box-shadow: 0 0 6px var(--green); } 50% { box-shadow: 0 0 14px var(--green), 0 0 28px rgba(34,211,122,.4); } }
+    @keyframes pulse-yellow { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+    /* ── BARS ── */
+    .res-bar-track { background: var(--border); border-radius: 999px; height: 6px; overflow: hidden; }
+    .res-bar-fill  { height: 100%; border-radius: 999px; transition: width 1s ease; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .2s; border: 1px solid transparent; white-space: nowrap;
+    }
+    .btn:active { transform: scale(.94); }
+    .btn-start   { background: rgba(34,211,122,.12); border-color: rgba(34,211,122,.35); color: var(--green); }
+    .btn-start:hover  { background: rgba(34,211,122,.22); }
+    .btn-stop    { background: rgba(255,71,87,.12);  border-color: rgba(255,71,87,.35);  color: var(--red); }
+    .btn-stop:hover   { background: rgba(255,71,87,.22); }
+    .btn-restart { background: rgba(255,211,42,.1);  border-color: rgba(255,211,42,.3);  color: var(--yellow); }
+    .btn-restart:hover { background: rgba(255,211,42,.2); }
+    .btn-kill    { background: rgba(100,116,139,.12); border-color: rgba(100,116,139,.3); color: var(--muted); }
+    .btn-kill:hover    { background: rgba(100,116,139,.22); }
+    .btn-cmd     { background: rgba(0,229,255,.1);   border-color: rgba(0,229,255,.3);   color: var(--accent); }
+    .btn-cmd:hover     { background: rgba(0,229,255,.2); }
+    .btn-refresh { background: rgba(124,58,237,.12); border-color: rgba(124,58,237,.3);  color: #a78bfa; }
+    .btn-refresh:hover { background: rgba(124,58,237,.22); }
+    .btn-add     { background: rgba(0,229,255,.1);   border-color: rgba(0,229,255,.35);  color: var(--accent); }
+    .btn-add:hover     { background: rgba(0,229,255,.2); }
+    .btn-delete  { background: rgba(255,71,87,.08);  border-color: rgba(255,71,87,.25);  color: var(--red); padding: 5px 9px; }
+    .btn-delete:hover  { background: rgba(255,71,87,.2); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none !important; }
+
+    /* ── BUTTON LOADING STATE ── */
+    .btn-loading {
+      opacity: .5;
+      cursor: not-allowed;
+      pointer-events: none;
+      position: relative;
+    }
+    /* кнопки дій під час очікування — всі напівпрозорі */
+    .power-busy .btn-start,
+    .power-busy .btn-stop,
+    .power-busy .btn-restart,
+    .power-busy .btn-kill {
+      opacity: .35;
+      pointer-events: none;
+    }
+    /* активна кнопка (та, що натиснута) — трохи яскравіша */
+    .power-busy .btn-active-action {
+      opacity: .7;
+    }
+
+    /* ── INPUT ── */
+    .cmd-input {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 8px 12px; font-family: 'Space Mono', monospace;
+      font-size: 13px; outline: none; transition: border-color .2s; width: 100%;
+    }
+    .cmd-input:focus { border-color: rgba(0,229,255,.5); }
+    .cmd-input::placeholder { color: var(--muted); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,.75);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .25s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%;
+      max-width: 480px;
+      transform: translateY(20px);
+      transition: transform .25s;
+      position: relative;
+    }
+    .modal-overlay.open .modal-box { transform: translateY(0); }
+
+    .modal-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .modal-input:focus { border-color: rgba(0,229,255,.5); }
+    .modal-input::placeholder { color: var(--muted); }
+
+    .modal-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    /* ── TOAST ── */
+    #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 12px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; backdrop-filter: blur(12px); animation: slideIn .3s ease; max-width: 320px; }
+    .toast-ok  { background: rgba(34,211,122,.15); border: 1px solid rgba(34,211,122,.4); color: var(--green); }
+    .toast-err { background: rgba(255,71,87,.15);  border: 1px solid rgba(255,71,87,.4);  color: var(--red); }
+    @keyframes slideIn { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: translateX(0); } }
+
+    /* ── MISC ── */
+    .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .6s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .uptime-chip { background: rgba(0,229,255,.07); border: 1px solid rgba(0,229,255,.15); border-radius: 6px; padding: 2px 8px; font-size: 11px; font-family: 'Space Mono', monospace; color: var(--accent); }
+
+    .fade-in { animation: fadeIn .5s ease both; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* confirm delete overlay */
+    .confirm-badge {
+      position: absolute;
+      inset: 0;
+      background: rgba(10,12,16,.92);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 10;
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .confirm-badge.show { opacity: 1; pointer-events: all; }
+  </style>
+</head>
+<body class="relative z-10">
+
+<!-- ═══ HEADER ═══ -->
+<header class="border-b border-[#1e2535] bg-[#0a0c10]/80 backdrop-blur sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-3">
+      <span class="text-3xl">⛏️</span>
+      <div>
+        <h1 class="text-xl font-extrabold tracking-tight header-glow" style="color:var(--accent)">MC ADMIN PANEL</h1>
+        <p class="text-xs mono" style="color:var(--muted)">Pterodactyl Client API · Multi-Host</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 flex-wrap">
+      <div id="refresh-timer" class="mono text-xs px-3 py-1.5 rounded-lg" style="color:var(--muted);background:var(--surface);border:1px solid var(--border)">
+        Оновлення за <span id="countdown">2</span>с
+      </div>
+      <button onclick="refreshAll()" class="btn btn-refresh">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        Оновити
+      </button>
+      <button onclick="openAddModal()" class="btn btn-add">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Додати сервер
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ MAIN ═══ -->
+<main class="max-w-7xl mx-auto px-6 py-10">
+
+  <!-- summary bar -->
+  <div class="grid grid-cols-3 gap-4 mb-10">
+    <div class="rounded-xl p-4 text-center" style="background:var(--surface);border:1px solid var(--border)">
+      <p class="text-xs mono mb-1" style="color:var(--muted)">ВСЬОГО СЕРВЕРІВ</p>
+      <p id="sum-total" class="text-3xl font-extrabold" style="color:var(--accent)">{{ servers|length }}</p>
+    </div>
+    <div class="rounded-xl p-4 text-center" style="background:var(--surface);border:1px solid var(--border)">
+      <p class="text-xs mono mb-1" style="color:var(--muted)">ONLINE</p>
+      <p id="sum-online" class="text-3xl font-extrabold" style="color:var(--green)">—</p>
+    </div>
+    <div class="rounded-xl p-4 text-center" style="background:var(--surface);border:1px solid var(--border)">
+      <p class="text-xs mono mb-1" style="color:var(--muted)">OFFLINE</p>
+      <p id="sum-offline" class="text-3xl font-extrabold" style="color:var(--red)">—</p>
+    </div>
+  </div>
+
+  <!-- cards grid — заповнюється через JS renderCard() у initCards() -->
+  <div id="cards-grid" class="grid gap-6" style="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr))"></div>
+</main>
+
+<!-- ═══ ADD SERVER MODAL ═══ -->
+<div class="modal-overlay" id="add-modal" onclick="closeAddModalOutside(event)">
+  <div class="modal-box">
+    <button onclick="closeAddModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;">✕</button>
+
+    <h2 class="text-lg font-extrabold mb-1" style="color:var(--accent)">➕ Додати сервер</h2>
+    <p class="text-xs mono mb-6" style="color:var(--muted)">Нові дані збережуться у servers.json</p>
+
+    <div class="flex flex-col gap-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="modal-label">Назва *</label>
+          <input class="modal-input" id="f-name" placeholder="Grief-3" />
+        </div>
+        <div>
+          <label class="modal-label">Іконка</label>
+          <input class="modal-input" id="f-icon" placeholder="⚔️" maxlength="4" />
+        </div>
+      </div>
+      <div>
+        <label class="modal-label">URL панелі *</label>
+        <input class="modal-input" id="f-panel-url" placeholder="https://panel.example.com" />
+      </div>
+      <div>
+        <label class="modal-label">Client API Key *</label>
+        <input class="modal-input" id="f-api-key" placeholder="ptlc_..." />
+      </div>
+      <div>
+        <label class="modal-label">Server Identifier *</label>
+        <input class="modal-input" id="f-server-id" placeholder="a1b2c3d4" />
+      </div>
+    </div>
+
+    <div class="flex gap-3 mt-6">
+      <button onclick="submitAddServer()" class="btn btn-add" style="flex:1;justify-content:center;padding:10px 0;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Додати
+      </button>
+      <button onclick="closeAddModal()" class="btn btn-kill" style="flex:1;justify-content:center;padding:10px 0;">Скасувати</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div id="toast-container"></div>
+
+<!-- ═══ CARD TEMPLATE (JS) ═══ -->
+<template id="card-tpl">
+  <div class="server-card fade-in p-6 flex flex-col gap-5" id="card-CARDID">
+
+    <!-- confirm overlay -->
+    <div class="confirm-badge" id="confirm-CARDID">
+      <p class="text-sm font-bold" style="color:var(--red)">Видалити сервер?</p>
+      <p class="text-xs mono" style="color:var(--muted)">Це незворотна дія</p>
+      <div class="flex gap-3">
+        <button onclick="confirmDelete('CARDID')" class="btn btn-stop" style="padding:6px 18px;">Так, видалити</button>
+        <button onclick="cancelDelete('CARDID')" class="btn btn-kill" style="padding:6px 18px;">Скасувати</button>
+      </div>
+    </div>
+
+    <!-- card header -->
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl card-icon"></span>
+        <div>
+          <h2 class="text-lg font-extrabold tracking-tight card-name"></h2>
+          <p class="text-xs mono" style="color:var(--muted)">ID: <span class="card-id-label"></span></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="status-dot status-error" id="dot-CARDID"></div>
+        <span class="text-sm font-semibold mono" id="state-label-CARDID" style="color:var(--muted)">loading…</span>
+        <span class="uptime-chip" id="uptime-CARDID" style="display:none"></span>
+        <!-- delete btn -->
+        <button onclick="askDelete('CARDID')" class="btn btn-delete" title="Видалити сервер">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- resources -->
+    <div class="flex flex-col gap-3">
+      <div>
+        <div class="flex justify-between text-xs mono mb-1" style="color:var(--muted)">
+          <span>CPU</span><span id="cpu-val-CARDID">—</span>
+        </div>
+        <div class="res-bar-track">
+          <div class="res-bar-fill" id="cpu-bar-CARDID" style="width:0%;background:linear-gradient(90deg,#7c3aed,#00e5ff)"></div>
+        </div>
+      </div>
+      <div>
+        <div class="flex justify-between text-xs mono mb-1" style="color:var(--muted)">
+          <span>RAM</span><span id="ram-val-CARDID">—</span>
+        </div>
+        <div class="res-bar-track">
+          <div class="res-bar-fill" id="ram-bar-CARDID" style="width:0%;background:linear-gradient(90deg,#22d37a,#00e5ff)"></div>
+        </div>
+      </div>
+      <div class="flex justify-between text-xs mono" style="color:var(--muted)">
+        <span>Диск: <span id="disk-val-CARDID">—</span></span>
+        <span>↓ <span id="rx-val-CARDID">—</span> KB  ↑ <span id="tx-val-CARDID">—</span> KB</span>
+      </div>
+    </div>
+
+    <!-- power actions -->
+    <!-- Обгортка отримує клас power-busy під час запиту — всі кнопки стають напівпрозорими -->
+    <div class="flex flex-wrap gap-2" id="power-row-CARDID">
+      <button class="btn btn-start"   id="btn-start-CARDID"   onclick="powerAction('CARDID','start')">▶ Start</button>
+      <button class="btn btn-stop"    id="btn-stop-CARDID"    onclick="powerAction('CARDID','stop')">■ Stop</button>
+      <button class="btn btn-restart" id="btn-restart-CARDID" onclick="powerAction('CARDID','restart')">↺ Restart</button>
+      <button class="btn btn-kill"    id="btn-kill-CARDID"    onclick="powerAction('CARDID','kill')">☠ Kill</button>
+    </div>
+
+    <!-- console command -->
+    <div class="flex gap-2">
+      <input class="cmd-input" id="cmd-input-CARDID" placeholder="/say Hello, world!"
+             onkeydown="if(event.key==='Enter') sendCommand('CARDID')" />
+      <button class="btn btn-cmd flex-shrink-0" onclick="sendCommand('CARDID')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 01-4 4H4"/></svg>
+        Send
+      </button>
+    </div>
+  </div>
+</template>
+
+<script>
+  // ── стан клієнта ──
+  let SERVERS = {{ servers | tojson }};
+  let countdownVal = 2;
+  let countdownInterval;
+
+  // Мітки кнопок у нормальному стані (для відновлення після спінера)
+  const BTN_LABELS = {
+    start:   '▶ Start',
+    stop:    '■ Stop',
+    restart: '↺ Restart',
+    kill:    '☠ Kill',
+  };
+
+  // ── TOAST ──
+  function toast(msg, ok = true) {
+    const el = document.createElement('div');
+    el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+
+  // ── FORMAT UPTIME ──
+  function fmtUptime(ms) {
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    if (h > 0) return `${h}г ${m}хв`;
+    if (m > 0) return `${m}хв ${sec}с`;
+    return `${sec}с`;
+  }
+
+  // ── RENDER CARD FROM TEMPLATE ──
+  function renderCard(id, name, icon) {
+    const tpl = document.getElementById('card-tpl');
+    const clone = tpl.content.cloneNode(true);
+    const div = clone.querySelector('.server-card');
+    // Розгортаємо всі placeholder-и CARDID прямо в HTML (без макросів — без UndefinedError)
+    div.innerHTML = div.innerHTML.replaceAll('CARDID', id);
+    div.id = `card-${id}`;
+    div.querySelector('.card-icon').textContent = icon;
+    div.querySelector('.card-name').textContent = name;
+    div.querySelector('.card-id-label').textContent = id;
+    return div;
+  }
+
+  // ── UPDATE CARD ──
+  function updateCard(id, data) {
+    const dot     = document.getElementById(`dot-${id}`);
+    const label   = document.getElementById(`state-label-${id}`);
+    const uptimeEl= document.getElementById(`uptime-${id}`);
+    if (!dot) return;
+
+    dot.className = 'status-dot';
+
+    if (data.ok === null) {
+      dot.classList.add('status-error');
+      label.textContent = '⟳ Оновлення...';
+      label.style.color = 'var(--muted)';
+      return;
+    }
+
+    if (!data.ok) {
+      dot.classList.add('status-error');
+      label.textContent = 'Error';
+      label.style.color = 'var(--muted)';
+      setBar(id, 'cpu', 0, '—'); setBar(id, 'ram', 0, '—');
+      document.getElementById(`disk-val-${id}`).textContent = '—';
+      document.getElementById(`rx-val-${id}`).textContent   = '—';
+      document.getElementById(`tx-val-${id}`).textContent   = '—';
+      uptimeEl.style.display = 'none';
+      return;
+    }
+
+    const stateMap = {
+      running:  { cls: 'status-online',   color: 'var(--green)',  label: 'Online' },
+      offline:  { cls: 'status-offline',  color: 'var(--red)',    label: 'Offline' },
+      starting: { cls: 'status-starting', color: 'var(--yellow)', label: 'Starting…' },
+      stopping: { cls: 'status-stopping', color: 'var(--yellow)', label: 'Stopping…' },
+    };
+    const info = stateMap[data.state] || { cls: 'status-error', color: 'var(--muted)', label: data.state };
+    dot.classList.add(info.cls);
+    label.textContent = info.label;
+    label.style.color = info.color;
+
+    setBar(id, 'cpu', Math.min(data.cpu, 100), `${data.cpu}%`);
+    setBar(id, 'ram', Math.min((data.ram_mb / 4096) * 100, 100), `${data.ram_mb} MB`);
+    document.getElementById(`disk-val-${id}`).textContent = `${data.disk_mb} MB`;
+    document.getElementById(`rx-val-${id}`).textContent   = data.network_rx;
+    document.getElementById(`tx-val-${id}`).textContent   = data.network_tx;
+
+    if (data.uptime > 0) { uptimeEl.textContent = fmtUptime(data.uptime); uptimeEl.style.display = ''; }
+    else uptimeEl.style.display = 'none';
+  }
+
+  function setBar(id, type, pct, lbl) {
+    const bar = document.getElementById(`${type}-bar-${id}`);
+    const val = document.getElementById(`${type}-val-${id}`);
+    if (bar) bar.style.width = pct + '%';
+    if (val) val.textContent = lbl;
+  }
+
+  // ── SPINNER: вмикає/вимикає візуальний стан "виконання" на кнопках ──
+  // action — яка кнопка натиснута ('start'|'stop'|'restart'|'kill'), або null → скидаємо
+  function setPowerBusy(id, action) {
+    const row = document.getElementById(`power-row-${id}`);
+    if (!row) return;
+
+    if (!action) {
+      // ── скидаємо ──
+      row.classList.remove('power-busy');
+      for (const [act, lbl] of Object.entries(BTN_LABELS)) {
+        const btn = document.getElementById(`btn-${act}-${id}`);
+        if (btn) {
+          btn.classList.remove('btn-active-action');
+          btn.innerHTML = lbl;
+          btn.disabled = false;
+        }
+      }
+      return;
+    }
+
+    // ── вмикаємо ──
+    row.classList.add('power-busy');
+    for (const act of Object.keys(BTN_LABELS)) {
+      const btn = document.getElementById(`btn-${act}-${id}`);
+      if (!btn) continue;
+      if (act === action) {
+        // Активна кнопка: спінер + назва
+        btn.classList.add('btn-active-action');
+        btn.innerHTML = `<span class="spin"></span>${BTN_LABELS[act]}`;
+        btn.disabled = true;
+      } else {
+        btn.disabled = true;
+      }
+    }
+  }
+
+  // ── REFRESH ALL ──
+  async function refreshAll() {
+    resetCountdown();
+    let online = 0, offline = 0;
+    await Promise.all(SERVERS.map(s =>
+      fetch(`/api/status/${s.id}`)
+        .then(r => r.json())
+        .then(data => {
+          updateCard(s.id, data);
+          if (data.ok && data.state === 'running') online++;
+          else offline++;
+        })
+        .catch(() => { updateCard(s.id, { ok: false, error: 'Fetch failed' }); offline++; })
+    ));
+    document.getElementById('sum-online').textContent  = online;
+    document.getElementById('sum-offline').textContent = offline;
+    document.getElementById('sum-total').textContent   = SERVERS.length;
+  }
+
+  // ── POWER ACTION ──
+  // 1. Вмикаємо спінер на активній кнопці, решту блокуємо.
+  // 2. Показуємо "pending" у картці.
+  // 3. Відправляємо POST — Flask за 1 с повертає свіжий статус.
+  // 4. Одразу застосовуємо статус із відповіді (без очікування планового циклу).
+  // 5. pollUntilStable слідкує, поки стан не стабілізується (starting→running тощо).
+  // 6. Прибираємо спінер.
+  async function powerAction(id, action) {
+    setPowerBusy(id, action);                        // спінер + блокування
+    updateCard(id, { ok: null, state: 'pending' });  // одразу показуємо "Оновлення..."
+
+    try {
+      const r = await fetch(`/api/power/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await r.json();
+
+      if (!data.ok) {
+        toast(`❌ ${id}: ${data.error}`, false);
+        setPowerBusy(id, null);
+        pollUntilStable(id, null); // відновлюємо реальний стан
+        return;
+      }
+
+      toast(`✅ ${id}: ${action} — виконано`);
+
+      // Flask вже зробив force_update і повернув свіжий стан у тілі відповіді
+      // → застосовуємо негайно, без окремого запиту до /api/status
+      if (data.status) updateCard(id, data.status);
+
+      // Продовжуємо слідкувати: starting/stopping може тривати ще кілька секунд
+      // Коли стан стабілізується — прибираємо спінер
+      await pollUntilStable(id, data.status?.state);
+
+    } catch (e) {
+      toast(`❌ ${id}: ${e}`, false);
+    } finally {
+      setPowerBusy(id, null); // завжди прибираємо спінер
+    }
+  }
+
+  // Опитує /api/status кожні 2 с (до 8 разів), поки стан не стабілізується.
+  // Повертає Promise, щоб powerAction міг дочекатись завершення перед finally.
+  async function pollUntilStable(id, currentState) {
+    const TRANSIENT = new Set(['starting', 'stopping', 'pending']);
+    const MAX_POLLS = 8;
+
+    for (let i = 0; i < MAX_POLLS; i++) {
+      await new Promise(res => setTimeout(res, 2000));
+      try {
+        const r = await fetch(`/api/status/${id}`);
+        const d = await r.json();
+        updateCard(id, d);
+        // Якщо стан стабільний — зупиняємось
+        if (d.ok !== null && !TRANSIENT.has(d.state)) break;
+      } catch (_) { break; }
+    }
+  }
+
+  // ── CONSOLE COMMAND ──
+  async function sendCommand(id) {
+    const inp = document.getElementById(`cmd-input-${id}`);
+    const cmd = inp.value.trim();
+    if (!cmd) return;
+    inp.value = '';
+    try {
+      const r = await fetch(`/api/command/${id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cmd })
+      });
+      const data = await r.json();
+      if (!data.ok) { toast(`❌ ${id}: ${data.error}`, false); return; }
+      toast(`📟 ${id}: «${cmd}» — виконано`);
+      if (data.status) updateCard(id, data.status);
+    } catch (e) { toast(`❌ ${id}: ${e}`, false); }
+  }
+
+  // ── COUNTDOWN ──
+  function resetCountdown() {
+    countdownVal = 2;
+    document.getElementById('countdown').textContent = countdownVal;
+  }
+  function startCountdown() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      countdownVal--;
+      document.getElementById('countdown').textContent = countdownVal;
+      if (countdownVal <= 0) refreshAll();
+    }, 1000);
+  }
+
+  // ── ADD SERVER MODAL ──
+  function openAddModal() {
+    ['f-name','f-icon','f-panel-url','f-api-key','f-server-id'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('add-modal').classList.add('open');
+  }
+  function closeAddModal() {
+    document.getElementById('add-modal').classList.remove('open');
+  }
+  function closeAddModalOutside(e) {
+    if (e.target === document.getElementById('add-modal')) closeAddModal();
+  }
+
+  async function submitAddServer() {
+    const name      = document.getElementById('f-name').value.trim();
+    const icon      = document.getElementById('f-icon').value.trim() || '🖥️';
+    const panel_url = document.getElementById('f-panel-url').value.trim();
+    const api_key   = document.getElementById('f-api-key').value.trim();
+    const server_id = document.getElementById('f-server-id').value.trim();
+
+    if (!name || !panel_url || !api_key || !server_id) {
+      toast('❌ Заповни всі обов\'язкові поля', false);
+      return;
+    }
+
+    try {
+      const r = await fetch('/api/servers/add', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, icon, panel_url, api_key, server_id })
+      });
+      const data = await r.json();
+      if (!data.ok) { toast(`❌ ${data.error}`, false); return; }
+
+      const s = data.server;
+      SERVERS.push(s);
+
+      const card = renderCard(s.id, s.name, s.icon);
+      document.getElementById('cards-grid').appendChild(card);
+
+      closeAddModal();
+      toast(`✅ Сервер «${s.name}» додано!`);
+      document.getElementById('sum-total').textContent = SERVERS.length;
+
+      pollUntilStable(s.id, 'pending');
+    } catch(e) { toast(`❌ ${e}`, false); }
+  }
+
+  // ── DELETE SERVER ──
+  function askDelete(id) {
+    document.getElementById(`confirm-${id}`).classList.add('show');
+  }
+  function cancelDelete(id) {
+    document.getElementById(`confirm-${id}`).classList.remove('show');
+  }
+  async function confirmDelete(id) {
+    try {
+      const r = await fetch(`/api/servers/delete/${id}`, { method: 'DELETE' });
+      const data = await r.json();
+      if (!data.ok) { toast(`❌ ${data.error}`, false); return; }
+
+      const card = document.getElementById(`card-${id}`);
+      if (card) card.remove();
+
+      SERVERS = SERVERS.filter(s => s.id !== id);
+      document.getElementById('sum-total').textContent = SERVERS.length;
+      toast(`🗑️ Сервер видалено`);
+    } catch(e) { toast(`❌ ${e}`, false); }
+  }
+
+  // ── INIT ──
+  (function initCards() {
+    const grid = document.getElementById('cards-grid');
+    grid.innerHTML = '';
+    SERVERS.forEach(s => {
+      const card = renderCard(s.id, s.name, s.icon);
+      grid.appendChild(card);
+    });
+  })();
+
+  refreshAll();
+  startCountdown();
+</script>
+</body>
+</html>
