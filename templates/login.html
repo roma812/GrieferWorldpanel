@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MC Admin · Вхід</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #080b0f;
+      --surface: #0e1318;
+      --border: #1a2030;
+      --accent: #00e5ff;
+      --accent2: #7c3aed;
+      --green: #22d37a;
+      --red: #ff4757;
+      --text: #d8e2f0;
+      --muted: #4a5568;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      animation: gridMove 20s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes gridMove {
+      0% { background-position: 0 0; }
+      100% { background-position: 48px 48px; }
+    }
+
+    /* Glow orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      opacity: .18;
+    }
+    .orb1 { width: 500px; height: 500px; background: var(--accent2); top: -150px; left: -150px; }
+    .orb2 { width: 400px; height: 400px; background: var(--accent);  bottom: -100px; right: -100px; }
+
+    /* Card */
+    .card {
+      position: relative;
+      z-index: 10;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 44px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 40px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(0,229,255,.05);
+      animation: cardIn .5s ease both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(24px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Logo */
+    .logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .logo-icon { font-size: 40px; display: block; margin-bottom: 8px; }
+    .logo-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--accent);
+      text-shadow: 0 0 24px rgba(0,229,255,.5);
+    }
+    .logo-sub { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: rgba(0,0,0,.3);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 28px;
+      border: 1px solid var(--border);
+    }
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      padding: 9px 0;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .tab-btn.active {
+      background: rgba(0,229,255,.1);
+      color: var(--accent);
+      border: 1px solid rgba(0,229,255,.25);
+    }
+
+    /* Fields */
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+    .field input {
+      width: 100%;
+      background: rgba(0,0,0,.3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .field input:focus {
+      border-color: rgba(0,229,255,.5);
+      box-shadow: 0 0 0 3px rgba(0,229,255,.08);
+    }
+    .field input::placeholder { color: var(--muted); }
+
+    /* Submit button */
+    .btn-submit {
+      width: 100%;
+      background: rgba(0,229,255,.1);
+      border: 1px solid rgba(0,229,255,.35);
+      color: var(--accent);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      padding: 13px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all .2s;
+      margin-top: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-submit::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(0,229,255,.08), transparent);
+      transform: translateX(-100%);
+      transition: transform .4s;
+    }
+    .btn-submit:hover::before { transform: translateX(100%); }
+    .btn-submit:hover {
+      background: rgba(0,229,255,.18);
+      box-shadow: 0 0 20px rgba(0,229,255,.2);
+    }
+    .btn-submit:active { transform: scale(.98); }
+    .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* Error */
+    .error-msg {
+      background: rgba(255,71,87,.1);
+      border: 1px solid rgba(255,71,87,.3);
+      color: var(--red);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 18px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+
+    /* Spinner */
+    .spin {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+
+  <div class="card">
+    <div class="logo">
+      <span class="logo-icon">⛏️</span>
+      <div class="logo-title">MC ADMIN</div>
+      <div class="logo-sub">Pterodactyl Multi-Host Panel</div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn" id="tab-login"    onclick="switchTab('login')">ВХІД</button>
+      <button class="tab-btn" id="tab-register" onclick="switchTab('register')">РЕЄСТРАЦІЯ</button>
+    </div>
+
+    <div class="error-msg" id="error-box"></div>
+
+    <!-- Login form -->
+    <div id="form-login">
+      <div class="field">
+        <label>Ім'я користувача</label>
+        <input type="text" id="l-username" placeholder="gamer123" autocomplete="username"
+               onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="btn-submit" id="btn-login" onclick="doLogin()">УВІЙТИ</button>
+    </div>
+
+    <!-- Register form -->
+    <div id="form-register" style="display:none">
+      <div class="field">
+        <label>Ім'я користувача</label>
+        <input type="text" id="r-username" placeholder="gamer123" autocomplete="username"
+               onkeydown="if(event.key==='Enter')doRegister()"/>
+      </div>
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" id="r-password" placeholder="мін. 6 символів" autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')doRegister()"/>
+      </div>
+      <div class="field">
+        <label>Підтвердити пароль</label>
+        <input type="password" id="r-password2" placeholder="повтори пароль" autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')doRegister()"/>
+      </div>
+      <button class="btn-submit" id="btn-register" onclick="doRegister()">СТВОРИТИ АКАУНТ</button>
+    </div>
+  </div>
+
+<script>
+  // Set initial tab
+  const initTab = "{{ tab|default('login') }}";
+  switchTab(initTab);
+
+  {% if error %}
+  showError("{{ error }}");
+  {% endif %}
+
+  function switchTab(tab) {
+    document.getElementById('form-login').style.display    = tab === 'login'    ? '' : 'none';
+    document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
+    document.getElementById('tab-login').classList.toggle('active',    tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    hideError();
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-box');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideError() {
+    document.getElementById('error-box').classList.remove('show');
+  }
+
+  function setBusy(btnId, busy) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = busy;
+    if (busy) {
+      btn.dataset.orig = btn.textContent;
+      btn.innerHTML = '<span class="spin"></span>';
+    } else {
+      btn.textContent = btn.dataset.orig || btn.textContent;
+    }
+  }
+
+  async function doLogin() {
+    hideError();
+    const username = document.getElementById('l-username').value.trim();
+    const password = document.getElementById('l-password').value.trim();
+    if (!username || !password) { showError('Заповни всі поля'); return; }
+    setBusy('btn-login', true);
+    try {
+      const r = await fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, password})
+      });
+      const d = await r.json();
+      if (d.ok) { window.location = '/'; }
+      else showError(d.error || 'Помилка');
+    } catch(e) { showError('Помилка мережі'); }
+    finally { setBusy('btn-login', false); }
+  }
+
+  async function doRegister() {
+    hideError();
+    const username  = document.getElementById('r-username').value.trim();
+    const password  = document.getElementById('r-password').value.trim();
+    const password2 = document.getElementById('r-password2').value.trim();
+    if (!username || !password) { showError('Заповни всі поля'); return; }
+    if (password !== password2) { showError('Паролі не збігаються'); return; }
+    setBusy('btn-register', true);
+    try {
+      const r = await fetch('/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, password})
+      });
+      const d = await r.json();
+      if (d.ok) { window.location = '/'; }
+      else showError(d.error || 'Помилка');
+    } catch(e) { showError('Помилка мережі'); }
+    finally { setBusy('btn-register', false); }
+  }
+</script>
+</body>
+</html>

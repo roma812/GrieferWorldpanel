@@ -1,54 +1,48 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MC Admin Panel</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet"/>
   <style>
     :root {
-      --bg: #0a0c10;
-      --surface: #10141c;
-      --surface2: #161b26;
-      --border: #1e2535;
+      --bg: #080b0f;
+      --surface: #0e1318;
+      --surface2: #131920;
+      --border: #1a2030;
       --accent: #00e5ff;
       --accent2: #7c3aed;
       --green: #22d37a;
       --red: #ff4757;
       --yellow: #ffd32a;
-      --text: #e2e8f0;
-      --muted: #64748b;
+      --text: #d8e2f0;
+      --muted: #4a5568;
     }
-
     * { box-sizing: border-box; }
-
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Syne', sans-serif;
+      font-family: 'Rajdhani', sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
     }
-
     body::before {
       content: '';
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background-image:
-        linear-gradient(rgba(0,229,255,.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,229,255,.03) 1px, transparent 1px);
-      background-size: 40px 40px;
-      pointer-events: none;
-      z-index: 0;
+        linear-gradient(rgba(0,229,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none; z-index: 0;
     }
-
     .mono { font-family: 'Space Mono', monospace; }
 
-    .header-glow {
-      text-shadow: 0 0 30px rgba(0,229,255,.6), 0 0 60px rgba(0,229,255,.25);
-    }
+    /* ── HEADER ── */
+    header { background: rgba(8,11,15,.9); border-bottom: 1px solid var(--border); backdrop-filter: blur(12px); }
+    .header-glow { color: var(--accent); text-shadow: 0 0 24px rgba(0,229,255,.5); }
 
     /* ── CARD ── */
     .server-card {
@@ -56,268 +50,221 @@
       border: 1px solid var(--border);
       border-radius: 16px;
       transition: border-color .3s, transform .25s, box-shadow .3s;
-      position: relative;
-      overflow: hidden;
+      position: relative; overflow: hidden;
     }
     .server-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
       background: linear-gradient(90deg, transparent, var(--accent), transparent);
-      opacity: 0;
-      transition: opacity .3s;
+      opacity: 0; transition: opacity .3s;
     }
-    .server-card:hover { border-color: rgba(0,229,255,.35); transform: translateY(-3px); box-shadow: 0 20px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(0,229,255,.1); }
+    .server-card:hover { border-color: rgba(0,229,255,.3); transform: translateY(-2px); box-shadow: 0 16px 40px rgba(0,0,0,.5); }
     .server-card:hover::before { opacity: 1; }
 
     /* ── STATUS ── */
-    .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-    .status-online   { background: var(--green);  box-shadow: 0 0 8px var(--green);  animation: pulse-green 2s infinite; }
-    .status-offline  { background: var(--red);    box-shadow: 0 0 8px var(--red); }
-    .status-starting { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: pulse-yellow 1s infinite; }
-    .status-stopping { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: pulse-yellow 1s infinite; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .status-online   { background: var(--green);  box-shadow: 0 0 8px var(--green);  animation: pg 2s infinite; }
+    .status-offline  { background: var(--red);    box-shadow: 0 0 6px var(--red); }
+    .status-starting { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: py 1s infinite; }
+    .status-stopping { background: var(--yellow); animation: py 1s infinite; }
     .status-error    { background: var(--muted); }
-
-    @keyframes pulse-green  { 0%,100% { box-shadow: 0 0 6px var(--green); } 50% { box-shadow: 0 0 14px var(--green), 0 0 28px rgba(34,211,122,.4); } }
-    @keyframes pulse-yellow { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+    @keyframes pg { 0%,100%{box-shadow:0 0 6px var(--green)}50%{box-shadow:0 0 16px var(--green),0 0 28px rgba(34,211,122,.4)}}
+    @keyframes py { 0%,100%{opacity:1}50%{opacity:.3}}
 
     /* ── BARS ── */
-    .res-bar-track { background: var(--border); border-radius: 999px; height: 6px; overflow: hidden; }
-    .res-bar-fill  { height: 100%; border-radius: 999px; transition: width 1s ease; }
+    .bar-track { background: var(--border); border-radius: 999px; height: 5px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 999px; transition: width 1.2s ease; }
 
     /* ── BUTTONS ── */
-    .btn {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: all .2s; border: 1px solid transparent; white-space: nowrap;
-    }
+    .btn { display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .2s;border:1px solid transparent;white-space:nowrap; }
     .btn:active { transform: scale(.94); }
-    .btn-start   { background: rgba(34,211,122,.12); border-color: rgba(34,211,122,.35); color: var(--green); }
-    .btn-start:hover  { background: rgba(34,211,122,.22); }
-    .btn-stop    { background: rgba(255,71,87,.12);  border-color: rgba(255,71,87,.35);  color: var(--red); }
-    .btn-stop:hover   { background: rgba(255,71,87,.22); }
-    .btn-restart { background: rgba(255,211,42,.1);  border-color: rgba(255,211,42,.3);  color: var(--yellow); }
-    .btn-restart:hover { background: rgba(255,211,42,.2); }
-    .btn-kill    { background: rgba(100,116,139,.12); border-color: rgba(100,116,139,.3); color: var(--muted); }
-    .btn-kill:hover    { background: rgba(100,116,139,.22); }
-    .btn-cmd     { background: rgba(0,229,255,.1);   border-color: rgba(0,229,255,.3);   color: var(--accent); }
-    .btn-cmd:hover     { background: rgba(0,229,255,.2); }
-    .btn-refresh { background: rgba(124,58,237,.12); border-color: rgba(124,58,237,.3);  color: #a78bfa; }
-    .btn-refresh:hover { background: rgba(124,58,237,.22); }
-    .btn-add     { background: rgba(0,229,255,.1);   border-color: rgba(0,229,255,.35);  color: var(--accent); }
-    .btn-add:hover     { background: rgba(0,229,255,.2); }
-    .btn-delete  { background: rgba(255,71,87,.08);  border-color: rgba(255,71,87,.25);  color: var(--red); padding: 5px 9px; }
-    .btn-delete:hover  { background: rgba(255,71,87,.2); }
-    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none !important; }
+    .btn-start   { background:rgba(34,211,122,.1); border-color:rgba(34,211,122,.3); color:var(--green); }
+    .btn-start:hover  { background:rgba(34,211,122,.2); }
+    .btn-stop    { background:rgba(255,71,87,.1);  border-color:rgba(255,71,87,.3);  color:var(--red); }
+    .btn-stop:hover   { background:rgba(255,71,87,.2); }
+    .btn-restart { background:rgba(255,211,42,.08); border-color:rgba(255,211,42,.25); color:var(--yellow); }
+    .btn-restart:hover { background:rgba(255,211,42,.16); }
+    .btn-kill    { background:rgba(100,116,139,.1); border-color:rgba(100,116,139,.25); color:var(--muted); }
+    .btn-kill:hover    { background:rgba(100,116,139,.2); }
+    .btn-cmd     { background:rgba(0,229,255,.08);  border-color:rgba(0,229,255,.25);  color:var(--accent); }
+    .btn-cmd:hover     { background:rgba(0,229,255,.16); }
+    .btn-refresh { background:rgba(124,58,237,.1); border-color:rgba(124,58,237,.25); color:#a78bfa; }
+    .btn-refresh:hover { background:rgba(124,58,237,.2); }
+    .btn-add     { background:rgba(0,229,255,.08); border-color:rgba(0,229,255,.3); color:var(--accent); }
+    .btn-add:hover     { background:rgba(0,229,255,.16); }
+    .btn-delete  { background:rgba(255,71,87,.06); border-color:rgba(255,71,87,.2); color:var(--red); padding:5px 9px; }
+    .btn-delete:hover  { background:rgba(255,71,87,.18); }
+    .btn-console { background:rgba(124,58,237,.08); border-color:rgba(124,58,237,.25); color:#a78bfa; }
+    .btn-console:hover { background:rgba(124,58,237,.18); }
+    .btn:disabled { opacity:.4; cursor:not-allowed; transform:none!important; }
+    .power-busy .btn { opacity:.35; pointer-events:none; }
+    .power-busy .btn-active-action { opacity:.75; }
 
-    /* ── BUTTON LOADING STATE ── */
-    .btn-loading {
-      opacity: .5;
-      cursor: not-allowed;
-      pointer-events: none;
-      position: relative;
-    }
-    /* кнопки дій під час очікування — всі напівпрозорі */
-    .power-busy .btn-start,
-    .power-busy .btn-stop,
-    .power-busy .btn-restart,
-    .power-busy .btn-kill {
-      opacity: .35;
-      pointer-events: none;
-    }
-    /* активна кнопка (та, що натиснута) — трохи яскравіша */
-    .power-busy .btn-active-action {
-      opacity: .7;
-    }
-
-    /* ── INPUT ── */
+    /* ── INPUTS ── */
     .cmd-input {
-      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-      border-radius: 8px; padding: 8px 12px; font-family: 'Space Mono', monospace;
-      font-size: 13px; outline: none; transition: border-color .2s; width: 100%;
+      background:var(--surface2); border:1px solid var(--border); color:var(--text);
+      border-radius:8px; padding:8px 12px; font-family:'Space Mono',monospace;
+      font-size:12px; outline:none; transition:border-color .2s; width:100%;
     }
-    .cmd-input:focus { border-color: rgba(0,229,255,.5); }
-    .cmd-input::placeholder { color: var(--muted); }
+    .cmd-input:focus { border-color:rgba(0,229,255,.4); }
+    .cmd-input::placeholder { color:var(--muted); }
+
+    /* ── CONSOLE ── */
+    .console-box {
+      background: #050708;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      height: 200px;
+      overflow-y: auto;
+      padding: 10px 12px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #8fbe8f;
+      scroll-behavior: smooth;
+    }
+    .console-box::-webkit-scrollbar { width: 4px; }
+    .console-box::-webkit-scrollbar-track { background: transparent; }
+    .console-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .console-line { word-break: break-all; }
+    .console-line.warn  { color: var(--yellow); }
+    .console-line.error { color: var(--red); }
+    .console-line.info  { color: var(--accent); }
+    .console-line.sys   { color: var(--muted); font-style: italic; }
+    .console-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .console-live-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--red);
+      margin-right: 6px; transition: background .3s;
+    }
+    .console-live-dot.connected { background: var(--green); animation: pg 2s infinite; }
 
     /* ── MODAL ── */
     .modal-overlay {
-      position: fixed; inset: 0; z-index: 1000;
-      background: rgba(0,0,0,.75);
-      backdrop-filter: blur(6px);
-      display: flex; align-items: center; justify-content: center;
-      opacity: 0; pointer-events: none;
-      transition: opacity .25s;
+      position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.8);
+      backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;
+      opacity:0;pointer-events:none;transition:opacity .25s;
     }
-    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-overlay.open { opacity:1; pointer-events:all; }
     .modal-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 32px;
-      width: 100%;
-      max-width: 480px;
-      transform: translateY(20px);
-      transition: transform .25s;
-      position: relative;
+      background:var(--surface);border:1px solid var(--border);border-radius:20px;
+      padding:32px;width:100%;max-width:480px;transform:translateY(20px);
+      transition:transform .25s;position:relative;
     }
-    .modal-overlay.open .modal-box { transform: translateY(0); }
-
+    .modal-overlay.open .modal-box { transform:translateY(0); }
     .modal-input {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      outline: none;
-      transition: border-color .2s;
+      width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+      border-radius:8px;padding:10px 14px;font-family:'Space Mono',monospace;font-size:12px;
+      outline:none;transition:border-color .2s;
     }
-    .modal-input:focus { border-color: rgba(0,229,255,.5); }
-    .modal-input::placeholder { color: var(--muted); }
-
-    .modal-label {
-      display: block;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .08em;
-      color: var(--muted);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-    }
+    .modal-input:focus { border-color:rgba(0,229,255,.4); }
+    .modal-input::placeholder { color:var(--muted); }
+    .modal-label { display:block;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;text-transform:uppercase; }
 
     /* ── TOAST ── */
-    #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
-    .toast { padding: 12px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; backdrop-filter: blur(12px); animation: slideIn .3s ease; max-width: 320px; }
-    .toast-ok  { background: rgba(34,211,122,.15); border: 1px solid rgba(34,211,122,.4); color: var(--green); }
-    .toast-err { background: rgba(255,71,87,.15);  border: 1px solid rgba(255,71,87,.4);  color: var(--red); }
-    @keyframes slideIn { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: translateX(0); } }
+    #toast-container { position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px; }
+    .toast { padding:11px 16px;border-radius:10px;font-size:14px;font-weight:600;backdrop-filter:blur(12px);animation:slideIn .3s ease;max-width:300px; }
+    .toast-ok  { background:rgba(34,211,122,.12);border:1px solid rgba(34,211,122,.35);color:var(--green); }
+    .toast-err { background:rgba(255,71,87,.12); border:1px solid rgba(255,71,87,.35); color:var(--red); }
+    @keyframes slideIn { from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)} }
 
     /* ── MISC ── */
-    .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .6s linear infinite; flex-shrink: 0; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .uptime-chip { background: rgba(0,229,255,.07); border: 1px solid rgba(0,229,255,.15); border-radius: 6px; padding: 2px 8px; font-size: 11px; font-family: 'Space Mono', monospace; color: var(--accent); }
-
-    .fade-in { animation: fadeIn .5s ease both; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    /* confirm delete overlay */
+    .spin { display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .uptime-chip { background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.12);border-radius:5px;padding:2px 7px;font-size:10px;font-family:'Space Mono',monospace;color:var(--accent); }
+    .fade-in { animation:fadeIn .4s ease both; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)} }
+    ::-webkit-scrollbar { width:5px; }
+    ::-webkit-scrollbar-track { background:var(--bg); }
+    ::-webkit-scrollbar-thumb { background:var(--border);border-radius:3px; }
     .confirm-badge {
-      position: absolute;
-      inset: 0;
-      background: rgba(10,12,16,.92);
-      border-radius: 16px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      z-index: 10;
-      backdrop-filter: blur(4px);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .2s;
+      position:absolute;inset:0;background:rgba(8,11,15,.93);border-radius:16px;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+      z-index:10;backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .2s;
     }
-    .confirm-badge.show { opacity: 1; pointer-events: all; }
+    .confirm-badge.show { opacity:1;pointer-events:all; }
+    .section-label { font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase; }
   </style>
 </head>
 <body class="relative z-10">
 
 <!-- ═══ HEADER ═══ -->
-<header class="border-b border-[#1e2535] bg-[#0a0c10]/80 backdrop-blur sticky top-0 z-50">
+<header class="sticky top-0 z-50">
   <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
     <div class="flex items-center gap-3">
       <span class="text-3xl">⛏️</span>
       <div>
-        <h1 class="text-xl font-extrabold tracking-tight header-glow" style="color:var(--accent)">MC ADMIN PANEL</h1>
+        <h1 class="text-xl font-extrabold tracking-wide header-glow" style="font-family:'Rajdhani',sans-serif">MC ADMIN PANEL</h1>
         <p class="text-xs mono" style="color:var(--muted)">Pterodactyl Client API · Multi-Host</p>
       </div>
     </div>
     <div class="flex items-center gap-3 flex-wrap">
+      <!-- Socket status -->
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg mono text-xs" style="background:var(--surface);border:1px solid var(--border);color:var(--muted)">
+        <div id="socket-dot" class="status-dot status-error"></div>
+        <span id="socket-label">Socket</span>
+      </div>
+      <!-- Countdown -->
       <div id="refresh-timer" class="mono text-xs px-3 py-1.5 rounded-lg" style="color:var(--muted);background:var(--surface);border:1px solid var(--border)">
-        Оновлення за <span id="countdown">2</span>с
+        Оновлення за <span id="countdown">15</span>с
       </div>
       <button onclick="refreshAll()" class="btn btn-refresh">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
         Оновити
       </button>
       <button onclick="openAddModal()" class="btn btn-add">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Додати сервер
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Додати
       </button>
+      <a href="/logout" class="btn btn-kill" style="text-decoration:none">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        {{ username }}
+      </a>
     </div>
   </div>
 </header>
 
 <!-- ═══ MAIN ═══ -->
-<main class="max-w-7xl mx-auto px-6 py-10">
-
-  <!-- summary bar -->
-  <div class="grid grid-cols-3 gap-4 mb-10">
+<main class="max-w-7xl mx-auto px-6 py-8 relative z-10">
+  <!-- Summary -->
+  <div class="grid grid-cols-3 gap-4 mb-8">
     <div class="rounded-xl p-4 text-center" style="background:var(--surface);border:1px solid var(--border)">
-      <p class="text-xs mono mb-1" style="color:var(--muted)">ВСЬОГО СЕРВЕРІВ</p>
+      <p class="section-label mb-1">Всього</p>
       <p id="sum-total" class="text-3xl font-extrabold" style="color:var(--accent)">{{ servers|length }}</p>
     </div>
     <div class="rounded-xl p-4 text-center" style="background:var(--surface);border:1px solid var(--border)">
-      <p class="text-xs mono mb-1" style="color:var(--muted)">ONLINE</p>
+      <p class="section-label mb-1">Online</p>
       <p id="sum-online" class="text-3xl font-extrabold" style="color:var(--green)">—</p>
     </div>
     <div class="rounded-xl p-4 text-center" style="background:var(--surface);border:1px solid var(--border)">
-      <p class="text-xs mono mb-1" style="color:var(--muted)">OFFLINE</p>
+      <p class="section-label mb-1">Offline</p>
       <p id="sum-offline" class="text-3xl font-extrabold" style="color:var(--red)">—</p>
     </div>
   </div>
 
-  <!-- cards grid — заповнюється через JS renderCard() у initCards() -->
-  <div id="cards-grid" class="grid gap-6" style="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr))"></div>
+  <!-- Cards grid -->
+  <div id="cards-grid" class="grid gap-5" style="grid-template-columns:repeat(auto-fill,minmax(380px,1fr))"></div>
 </main>
 
 <!-- ═══ ADD SERVER MODAL ═══ -->
 <div class="modal-overlay" id="add-modal" onclick="closeAddModalOutside(event)">
   <div class="modal-box">
-    <button onclick="closeAddModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;">✕</button>
-
+    <button onclick="closeAddModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;">✕</button>
     <h2 class="text-lg font-extrabold mb-1" style="color:var(--accent)">➕ Додати сервер</h2>
-    <p class="text-xs mono mb-6" style="color:var(--muted)">Нові дані збережуться у servers.json</p>
-
+    <p class="text-xs mono mb-5" style="color:var(--muted)">Дані зберігаються у вашому акаунті</p>
     <div class="flex flex-col gap-4">
       <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="modal-label">Назва *</label>
-          <input class="modal-input" id="f-name" placeholder="Grief-3" />
-        </div>
-        <div>
-          <label class="modal-label">Іконка</label>
-          <input class="modal-input" id="f-icon" placeholder="⚔️" maxlength="4" />
-        </div>
+        <div><label class="modal-label">Назва *</label><input class="modal-input" id="f-name" placeholder="Grief-3"/></div>
+        <div><label class="modal-label">Іконка</label><input class="modal-input" id="f-icon" placeholder="⚔️" maxlength="4"/></div>
       </div>
-      <div>
-        <label class="modal-label">URL панелі *</label>
-        <input class="modal-input" id="f-panel-url" placeholder="https://panel.example.com" />
-      </div>
-      <div>
-        <label class="modal-label">Client API Key *</label>
-        <input class="modal-input" id="f-api-key" placeholder="ptlc_..." />
-      </div>
-      <div>
-        <label class="modal-label">Server Identifier *</label>
-        <input class="modal-input" id="f-server-id" placeholder="a1b2c3d4" />
-      </div>
+      <div><label class="modal-label">URL панелі *</label><input class="modal-input" id="f-panel-url" placeholder="https://panel.example.com"/></div>
+      <div><label class="modal-label">Client API Key *</label><input class="modal-input" id="f-api-key" placeholder="ptlc_..." type="password"/></div>
+      <div><label class="modal-label">Server Identifier *</label><input class="modal-input" id="f-server-id" placeholder="a1b2c3d4"/></div>
     </div>
-
-    <div class="flex gap-3 mt-6">
-      <button onclick="submitAddServer()" class="btn btn-add" style="flex:1;justify-content:center;padding:10px 0;">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Додати
-      </button>
-      <button onclick="closeAddModal()" class="btn btn-kill" style="flex:1;justify-content:center;padding:10px 0;">Скасувати</button>
+    <div class="flex gap-3 mt-5">
+      <button onclick="submitAddServer()" class="btn btn-add" style="flex:1;justify-content:center;padding:10px 0">➕ Додати</button>
+      <button onclick="closeAddModal()" class="btn btn-kill" style="flex:1;justify-content:center;padding:10px 0">Скасувати</button>
     </div>
   </div>
 </div>
@@ -325,98 +272,245 @@
 <!-- ═══ TOAST ═══ -->
 <div id="toast-container"></div>
 
-<!-- ═══ CARD TEMPLATE (JS) ═══ -->
+<!-- ═══ CARD TEMPLATE ═══ -->
 <template id="card-tpl">
-  <div class="server-card fade-in p-6 flex flex-col gap-5" id="card-CARDID">
-
+  <div class="server-card fade-in" id="card-CARDID">
     <!-- confirm overlay -->
     <div class="confirm-badge" id="confirm-CARDID">
-      <p class="text-sm font-bold" style="color:var(--red)">Видалити сервер?</p>
+      <p class="font-bold" style="color:var(--red)">Видалити сервер?</p>
       <p class="text-xs mono" style="color:var(--muted)">Це незворотна дія</p>
       <div class="flex gap-3">
-        <button onclick="confirmDelete('CARDID')" class="btn btn-stop" style="padding:6px 18px;">Так, видалити</button>
-        <button onclick="cancelDelete('CARDID')" class="btn btn-kill" style="padding:6px 18px;">Скасувати</button>
+        <button onclick="confirmDelete('CARDID')" class="btn btn-stop" style="padding:6px 16px">Так</button>
+        <button onclick="cancelDelete('CARDID')" class="btn btn-kill" style="padding:6px 16px">Ні</button>
       </div>
     </div>
 
-    <!-- card header -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="text-2xl card-icon"></span>
+    <!-- Main content -->
+    <div class="p-5 flex flex-col gap-4">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl card-icon"></span>
+          <div>
+            <h2 class="text-lg font-extrabold tracking-tight card-name"></h2>
+            <p class="text-xs mono" style="color:var(--muted)">ID: <span class="card-id-label"></span></p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="status-dot status-error" id="dot-CARDID"></div>
+          <span class="text-sm font-bold mono" id="state-label-CARDID" style="color:var(--muted)">loading…</span>
+          <span class="uptime-chip" id="uptime-CARDID" style="display:none"></span>
+          <button onclick="askDelete('CARDID')" class="btn btn-delete" title="Видалити">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Resources -->
+      <div class="flex flex-col gap-2.5">
         <div>
-          <h2 class="text-lg font-extrabold tracking-tight card-name"></h2>
-          <p class="text-xs mono" style="color:var(--muted)">ID: <span class="card-id-label"></span></p>
+          <div class="flex justify-between text-xs mono mb-1" style="color:var(--muted)"><span>CPU</span><span id="cpu-val-CARDID">—</span></div>
+          <div class="bar-track"><div class="bar-fill" id="cpu-bar-CARDID" style="width:0%;background:linear-gradient(90deg,#7c3aed,#00e5ff)"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mono mb-1" style="color:var(--muted)"><span>RAM</span><span id="ram-val-CARDID">—</span></div>
+          <div class="bar-track"><div class="bar-fill" id="ram-bar-CARDID" style="width:0%;background:linear-gradient(90deg,#22d37a,#00e5ff)"></div></div>
+        </div>
+        <div class="flex justify-between text-xs mono" style="color:var(--muted)">
+          <span>Диск: <span id="disk-val-CARDID">—</span></span>
+          <span>↓ <span id="rx-val-CARDID">—</span> KB &nbsp;↑ <span id="tx-val-CARDID">—</span> KB</span>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <div class="status-dot status-error" id="dot-CARDID"></div>
-        <span class="text-sm font-semibold mono" id="state-label-CARDID" style="color:var(--muted)">loading…</span>
-        <span class="uptime-chip" id="uptime-CARDID" style="display:none"></span>
-        <!-- delete btn -->
-        <button onclick="askDelete('CARDID')" class="btn btn-delete" title="Видалити сервер">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-        </button>
-      </div>
-    </div>
 
-    <!-- resources -->
-    <div class="flex flex-col gap-3">
-      <div>
-        <div class="flex justify-between text-xs mono mb-1" style="color:var(--muted)">
-          <span>CPU</span><span id="cpu-val-CARDID">—</span>
-        </div>
-        <div class="res-bar-track">
-          <div class="res-bar-fill" id="cpu-bar-CARDID" style="width:0%;background:linear-gradient(90deg,#7c3aed,#00e5ff)"></div>
-        </div>
+      <!-- Power actions -->
+      <div class="flex flex-wrap gap-2" id="power-row-CARDID">
+        <button class="btn btn-start"   id="btn-start-CARDID"   onclick="powerAction('CARDID','start')">▶ Start</button>
+        <button class="btn btn-stop"    id="btn-stop-CARDID"    onclick="powerAction('CARDID','stop')">■ Stop</button>
+        <button class="btn btn-restart" id="btn-restart-CARDID" onclick="powerAction('CARDID','restart')">↺ Restart</button>
+        <button class="btn btn-kill"    id="btn-kill-CARDID"    onclick="powerAction('CARDID','kill')">☠ Kill</button>
+        <button class="btn btn-console" id="btn-console-CARDID" onclick="toggleConsole('CARDID')">▼ Консоль</button>
       </div>
-      <div>
-        <div class="flex justify-between text-xs mono mb-1" style="color:var(--muted)">
-          <span>RAM</span><span id="ram-val-CARDID">—</span>
-        </div>
-        <div class="res-bar-track">
-          <div class="res-bar-fill" id="ram-bar-CARDID" style="width:0%;background:linear-gradient(90deg,#22d37a,#00e5ff)"></div>
-        </div>
-      </div>
-      <div class="flex justify-between text-xs mono" style="color:var(--muted)">
-        <span>Диск: <span id="disk-val-CARDID">—</span></span>
-        <span>↓ <span id="rx-val-CARDID">—</span> KB  ↑ <span id="tx-val-CARDID">—</span> KB</span>
-      </div>
-    </div>
 
-    <!-- power actions -->
-    <!-- Обгортка отримує клас power-busy під час запиту — всі кнопки стають напівпрозорими -->
-    <div class="flex flex-wrap gap-2" id="power-row-CARDID">
-      <button class="btn btn-start"   id="btn-start-CARDID"   onclick="powerAction('CARDID','start')">▶ Start</button>
-      <button class="btn btn-stop"    id="btn-stop-CARDID"    onclick="powerAction('CARDID','stop')">■ Stop</button>
-      <button class="btn btn-restart" id="btn-restart-CARDID" onclick="powerAction('CARDID','restart')">↺ Restart</button>
-      <button class="btn btn-kill"    id="btn-kill-CARDID"    onclick="powerAction('CARDID','kill')">☠ Kill</button>
-    </div>
+      <!-- Console section (collapsible) -->
+      <div id="console-section-CARDID" style="display:none" class="flex flex-col gap-2">
+        <div class="console-header">
+          <div class="flex items-center gap-2">
+            <div class="console-live-dot" id="console-dot-CARDID"></div>
+            <span class="section-label">Live Console</span>
+          </div>
+          <button onclick="clearConsole('CARDID')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;font-family:'Space Mono',monospace">CLR</button>
+        </div>
+        <div class="console-box" id="console-CARDID"></div>
+        <div class="flex gap-2">
+          <input class="cmd-input" id="cmd-input-CARDID" placeholder="/say Hello World!"
+                 onkeydown="if(event.key==='Enter')sendCommand('CARDID')"/>
+          <button class="btn btn-cmd flex-shrink-0" onclick="sendCommand('CARDID')">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 01-4 4H4"/></svg>
+            Send
+          </button>
+        </div>
+      </div>
 
-    <!-- console command -->
-    <div class="flex gap-2">
-      <input class="cmd-input" id="cmd-input-CARDID" placeholder="/say Hello, world!"
-             onkeydown="if(event.key==='Enter') sendCommand('CARDID')" />
-      <button class="btn btn-cmd flex-shrink-0" onclick="sendCommand('CARDID')">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 01-4 4H4"/></svg>
-        Send
-      </button>
     </div>
   </div>
 </template>
 
 <script>
-  // ── стан клієнта ──
   let SERVERS = {{ servers | tojson }};
-  let countdownVal = 2;
-  let countdownInterval;
+  const BTN_LABELS = { start:'▶ Start', stop:'■ Stop', restart:'↺ Restart', kill:'☠ Kill' };
 
-  // Мітки кнопок у нормальному стані (для відновлення після спінера)
-  const BTN_LABELS = {
-    start:   '▶ Start',
-    stop:    '■ Stop',
-    restart: '↺ Restart',
-    kill:    '☠ Kill',
-  };
+  // ── SOCKET.IO ──
+  const socket = io();
+  const consoleOpen  = {};   // server_id → bool
+  const consoleLogs  = {};   // server_id → string[]
+  const wsConnected  = {};   // server_id → bool
+  const pteroWS      = {};   // server_id → WebSocket instance
+
+  socket.on('connect', () => {
+    document.getElementById('socket-dot').className = 'status-dot status-online';
+    document.getElementById('socket-label').textContent = 'Socket ✓';
+    // Subscribe to all server rooms for real-time status
+    SERVERS.forEach(s => socket.emit('subscribe', { server_id: s.id }));
+  });
+  socket.on('disconnect', () => {
+    document.getElementById('socket-dot').className = 'status-dot status-error';
+    document.getElementById('socket-label').textContent = 'Socket ✗';
+  });
+
+  // Real-time status update from server
+  socket.on('status_update', data => {
+    updateCard(data.id, data);
+    updateSummary();
+  });
+
+  // Pterodactyl WebSocket credentials response
+  socket.on('ws_token', data => {
+    if (data.error) {
+      appendConsole(data.server_id, `[ПОМИЛКА] ${data.error}`, 'error');
+      return;
+    }
+    connectPteroWS(data.server_id, data.socket, data.token);
+  });
+
+  // ── PTERO WEBSOCKET (Live Console) ──
+  function connectPteroWS(id, wsUrl, token) {
+    if (pteroWS[id]) {
+      pteroWS[id].close();
+    }
+    appendConsole(id, '[SYS] Підключення до консолі...', 'sys');
+    let ws;
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch(e) {
+      appendConsole(id, `[SYS] Не вдалося підключитися: ${e}`, 'error');
+      return;
+    }
+    pteroWS[id] = ws;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ event: 'auth', args: [token] }));
+    };
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.event === 'auth success') {
+          ws.send(JSON.stringify({ event: 'send logs', args: [null] }));
+          ws.send(JSON.stringify({ event: 'send stats', args: [null] }));
+          wsConnected[id] = true;
+          setConsoleDot(id, true);
+          appendConsole(id, '[SYS] Підключено ✓', 'sys');
+        } else if (msg.event === 'console output' && msg.args) {
+          const line = msg.args[0] || '';
+          const cls = line.includes('WARN') ? 'warn' : line.includes('ERROR') ? 'error' : '';
+          appendConsole(id, line, cls);
+        } else if (msg.event === 'stats' && msg.args) {
+          // Stats from WS — update card directly
+          try {
+            const stats = JSON.parse(msg.args[0]);
+            const upd = {
+              ok: true,
+              state: stats.state || 'running',
+              cpu: Math.round((stats.cpu_absolute || 0) * 10) / 10,
+              ram_mb: Math.round((stats.memory_bytes || 0) / 1024 / 1024 * 10) / 10,
+              disk_mb: Math.round((stats.disk_bytes || 0) / 1024 / 1024 * 10) / 10,
+              uptime: stats.uptime || 0,
+              network_rx: Math.round((stats.network?.rx_bytes || 0) / 1024 * 10) / 10,
+              network_tx: Math.round((stats.network?.tx_bytes || 0) / 1024 * 10) / 10,
+            };
+            updateCard(id, upd);
+          } catch(_) {}
+        } else if (msg.event === 'token expiring' || msg.event === 'token expired') {
+          appendConsole(id, '[SYS] Токен протермінований, перепідключення...', 'sys');
+          socket.emit('request_ws_token', { server_id: id });
+        }
+      } catch(_) {}
+    };
+    ws.onclose = () => {
+      wsConnected[id] = false;
+      setConsoleDot(id, false);
+      appendConsole(id, '[SYS] З\'єднання закрито', 'sys');
+    };
+    ws.onerror = () => {
+      appendConsole(id, '[SYS] Помилка WebSocket', 'error');
+    };
+  }
+
+  function setConsoleDot(id, on) {
+    const dot = document.getElementById(`console-dot-${id}`);
+    if (dot) dot.className = 'console-live-dot' + (on ? ' connected' : '');
+  }
+
+  function appendConsole(id, line, cls = '') {
+    if (!consoleLogs[id]) consoleLogs[id] = [];
+    consoleLogs[id].push({ line, cls });
+    if (consoleLogs[id].length > 300) consoleLogs[id].shift();
+
+    const box = document.getElementById(`console-${id}`);
+    if (!box) return;
+    const el = document.createElement('div');
+    el.className = 'console-line' + (cls ? ` ${cls}` : '');
+    el.textContent = line;
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function clearConsole(id) {
+    consoleLogs[id] = [];
+    const box = document.getElementById(`console-${id}`);
+    if (box) box.innerHTML = '';
+  }
+
+  function toggleConsole(id) {
+    const sec = document.getElementById(`console-section-${id}`);
+    const btn = document.getElementById(`btn-console-${id}`);
+    const isOpen = sec.style.display !== 'none';
+    if (isOpen) {
+      sec.style.display = 'none';
+      btn.textContent = '▼ Консоль';
+      consoleOpen[id] = false;
+    } else {
+      sec.style.display = '';
+      btn.textContent = '▲ Консоль';
+      consoleOpen[id] = true;
+      // Connect to Ptero WS if not already
+      if (!pteroWS[id] || pteroWS[id].readyState > 1) {
+        socket.emit('request_ws_token', { server_id: id });
+      }
+      // Replay buffered logs
+      const box = document.getElementById(`console-${id}`);
+      if (box && consoleLogs[id]) {
+        box.innerHTML = '';
+        consoleLogs[id].forEach(({ line, cls }) => {
+          const el = document.createElement('div');
+          el.className = 'console-line' + (cls ? ` ${cls}` : '');
+          el.textContent = line;
+          box.appendChild(el);
+        });
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+  }
 
   // ── TOAST ──
   function toast(msg, ok = true) {
@@ -427,7 +521,7 @@
     setTimeout(() => el.remove(), 3500);
   }
 
-  // ── FORMAT UPTIME ──
+  // ── FORMAT ──
   function fmtUptime(ms) {
     const s = Math.floor(ms / 1000);
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
@@ -436,12 +530,11 @@
     return `${sec}с`;
   }
 
-  // ── RENDER CARD FROM TEMPLATE ──
+  // ── RENDER CARD ──
   function renderCard(id, name, icon) {
     const tpl = document.getElementById('card-tpl');
     const clone = tpl.content.cloneNode(true);
     const div = clone.querySelector('.server-card');
-    // Розгортаємо всі placeholder-и CARDID прямо в HTML (без макросів — без UndefinedError)
     div.innerHTML = div.innerHTML.replaceAll('CARDID', id);
     div.id = `card-${id}`;
     div.querySelector('.card-icon').textContent = icon;
@@ -452,51 +545,47 @@
 
   // ── UPDATE CARD ──
   function updateCard(id, data) {
-    const dot     = document.getElementById(`dot-${id}`);
-    const label   = document.getElementById(`state-label-${id}`);
-    const uptimeEl= document.getElementById(`uptime-${id}`);
+    const dot   = document.getElementById(`dot-${id}`);
+    const label = document.getElementById(`state-label-${id}`);
+    const utime = document.getElementById(`uptime-${id}`);
     if (!dot) return;
-
     dot.className = 'status-dot';
 
     if (data.ok === null) {
       dot.classList.add('status-error');
-      label.textContent = '⟳ Оновлення...';
-      label.style.color = 'var(--muted)';
-      return;
+      label.textContent = '⟳'; label.style.color = 'var(--muted)'; return;
     }
-
     if (!data.ok) {
       dot.classList.add('status-error');
-      label.textContent = 'Error';
-      label.style.color = 'var(--muted)';
-      setBar(id, 'cpu', 0, '—'); setBar(id, 'ram', 0, '—');
-      document.getElementById(`disk-val-${id}`).textContent = '—';
-      document.getElementById(`rx-val-${id}`).textContent   = '—';
-      document.getElementById(`tx-val-${id}`).textContent   = '—';
-      uptimeEl.style.display = 'none';
+      label.textContent = 'Error'; label.style.color = 'var(--muted)';
+      setBar(id,'cpu',0,'—'); setBar(id,'ram',0,'—');
+      ['disk-val','rx-val','tx-val'].forEach(k => { const el = document.getElementById(`${k}-${id}`); if(el) el.textContent='—'; });
+      if (utime) utime.style.display = 'none';
       return;
     }
-
     const stateMap = {
-      running:  { cls: 'status-online',   color: 'var(--green)',  label: 'Online' },
-      offline:  { cls: 'status-offline',  color: 'var(--red)',    label: 'Offline' },
-      starting: { cls: 'status-starting', color: 'var(--yellow)', label: 'Starting…' },
-      stopping: { cls: 'status-stopping', color: 'var(--yellow)', label: 'Stopping…' },
+      running:  {cls:'status-online',  color:'var(--green)',  lbl:'Online'},
+      offline:  {cls:'status-offline', color:'var(--red)',    lbl:'Offline'},
+      starting: {cls:'status-starting',color:'var(--yellow)', lbl:'Starting…'},
+      stopping: {cls:'status-stopping',color:'var(--yellow)', lbl:'Stopping…'},
     };
-    const info = stateMap[data.state] || { cls: 'status-error', color: 'var(--muted)', label: data.state };
+    const info = stateMap[data.state] || {cls:'status-error',color:'var(--muted)',lbl:data.state};
     dot.classList.add(info.cls);
-    label.textContent = info.label;
+    label.textContent = info.lbl;
     label.style.color = info.color;
 
     setBar(id, 'cpu', Math.min(data.cpu, 100), `${data.cpu}%`);
     setBar(id, 'ram', Math.min((data.ram_mb / 4096) * 100, 100), `${data.ram_mb} MB`);
-    document.getElementById(`disk-val-${id}`).textContent = `${data.disk_mb} MB`;
-    document.getElementById(`rx-val-${id}`).textContent   = data.network_rx;
-    document.getElementById(`tx-val-${id}`).textContent   = data.network_tx;
-
-    if (data.uptime > 0) { uptimeEl.textContent = fmtUptime(data.uptime); uptimeEl.style.display = ''; }
-    else uptimeEl.style.display = 'none';
+    const disk = document.getElementById(`disk-val-${id}`);
+    const rx   = document.getElementById(`rx-val-${id}`);
+    const tx   = document.getElementById(`tx-val-${id}`);
+    if (disk) disk.textContent = `${data.disk_mb} MB`;
+    if (rx)   rx.textContent   = data.network_rx;
+    if (tx)   tx.textContent   = data.network_tx;
+    if (utime) {
+      if (data.uptime > 0) { utime.textContent = fmtUptime(data.uptime); utime.style.display = ''; }
+      else utime.style.display = 'none';
+    }
   }
 
   function setBar(id, type, pct, lbl) {
@@ -506,120 +595,86 @@
     if (val) val.textContent = lbl;
   }
 
-  // ── SPINNER: вмикає/вимикає візуальний стан "виконання" на кнопках ──
-  // action — яка кнопка натиснута ('start'|'stop'|'restart'|'kill'), або null → скидаємо
-  function setPowerBusy(id, action) {
-    const row = document.getElementById(`power-row-${id}`);
-    if (!row) return;
-
-    if (!action) {
-      // ── скидаємо ──
-      row.classList.remove('power-busy');
-      for (const [act, lbl] of Object.entries(BTN_LABELS)) {
-        const btn = document.getElementById(`btn-${act}-${id}`);
-        if (btn) {
-          btn.classList.remove('btn-active-action');
-          btn.innerHTML = lbl;
-          btn.disabled = false;
-        }
-      }
-      return;
-    }
-
-    // ── вмикаємо ──
-    row.classList.add('power-busy');
-    for (const act of Object.keys(BTN_LABELS)) {
-      const btn = document.getElementById(`btn-${act}-${id}`);
-      if (!btn) continue;
-      if (act === action) {
-        // Активна кнопка: спінер + назва
-        btn.classList.add('btn-active-action');
-        btn.innerHTML = `<span class="spin"></span>${BTN_LABELS[act]}`;
-        btn.disabled = true;
-      } else {
-        btn.disabled = true;
-      }
-    }
-  }
-
-  // ── REFRESH ALL ──
-  async function refreshAll() {
-    resetCountdown();
+  // ── SUMMARY ──
+  function updateSummary() {
     let online = 0, offline = 0;
-    await Promise.all(SERVERS.map(s =>
-      fetch(`/api/status/${s.id}`)
-        .then(r => r.json())
-        .then(data => {
-          updateCard(s.id, data);
-          if (data.ok && data.state === 'running') online++;
-          else offline++;
-        })
-        .catch(() => { updateCard(s.id, { ok: false, error: 'Fetch failed' }); offline++; })
-    ));
+    SERVERS.forEach(s => {
+      const dot = document.getElementById(`dot-${s.id}`);
+      if (!dot) return;
+      if (dot.classList.contains('status-online')) online++;
+      else offline++;
+    });
     document.getElementById('sum-online').textContent  = online;
     document.getElementById('sum-offline').textContent = offline;
     document.getElementById('sum-total').textContent   = SERVERS.length;
   }
 
-  // ── POWER ACTION ──
-  // 1. Вмикаємо спінер на активній кнопці, решту блокуємо.
-  // 2. Показуємо "pending" у картці.
-  // 3. Відправляємо POST — Flask за 1 с повертає свіжий статус.
-  // 4. Одразу застосовуємо статус із відповіді (без очікування планового циклу).
-  // 5. pollUntilStable слідкує, поки стан не стабілізується (starting→running тощо).
-  // 6. Прибираємо спінер.
-  async function powerAction(id, action) {
-    setPowerBusy(id, action);                        // спінер + блокування
-    updateCard(id, { ok: null, state: 'pending' });  // одразу показуємо "Оновлення..."
-
-    try {
-      const r = await fetch(`/api/power/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+  // ── POWER BUSY ──
+  function setPowerBusy(id, action) {
+    const row = document.getElementById(`power-row-${id}`);
+    if (!row) return;
+    if (!action) {
+      row.classList.remove('power-busy');
+      Object.entries(BTN_LABELS).forEach(([act, lbl]) => {
+        const btn = document.getElementById(`btn-${act}-${id}`);
+        if (btn) { btn.classList.remove('btn-active-action'); btn.innerHTML = lbl; btn.disabled = false; }
       });
-      const data = await r.json();
-
-      if (!data.ok) {
-        toast(`❌ ${id}: ${data.error}`, false);
-        setPowerBusy(id, null);
-        pollUntilStable(id, null); // відновлюємо реальний стан
-        return;
-      }
-
-      toast(`✅ ${id}: ${action} — виконано`);
-
-      // Flask вже зробив force_update і повернув свіжий стан у тілі відповіді
-      // → застосовуємо негайно, без окремого запиту до /api/status
-      if (data.status) updateCard(id, data.status);
-
-      // Продовжуємо слідкувати: starting/stopping може тривати ще кілька секунд
-      // Коли стан стабілізується — прибираємо спінер
-      await pollUntilStable(id, data.status?.state);
-
-    } catch (e) {
-      toast(`❌ ${id}: ${e}`, false);
-    } finally {
-      setPowerBusy(id, null); // завжди прибираємо спінер
+      return;
     }
+    row.classList.add('power-busy');
+    Object.keys(BTN_LABELS).forEach(act => {
+      const btn = document.getElementById(`btn-${act}-${id}`);
+      if (!btn) return;
+      btn.disabled = true;
+      if (act === action) {
+        btn.classList.add('btn-active-action');
+        btn.innerHTML = `<span class="spin"></span>${BTN_LABELS[act]}`;
+      }
+    });
   }
 
-  // Опитує /api/status кожні 2 с (до 8 разів), поки стан не стабілізується.
-  // Повертає Promise, щоб powerAction міг дочекатись завершення перед finally.
-  async function pollUntilStable(id, currentState) {
-    const TRANSIENT = new Set(['starting', 'stopping', 'pending']);
-    const MAX_POLLS = 8;
+  // ── REFRESH ALL ──
+  async function refreshAll() {
+    resetCountdown();
+    await Promise.all(SERVERS.map(s =>
+      fetch(`/api/status/${s.id}`)
+        .then(r => r.json())
+        .then(data => updateCard(s.id, data))
+        .catch(() => updateCard(s.id, { ok: false, error: 'Fetch failed' }))
+    ));
+    updateSummary();
+  }
 
-    for (let i = 0; i < MAX_POLLS; i++) {
-      await new Promise(res => setTimeout(res, 2000));
+  // ── POWER ACTION ──
+  async function powerAction(id, action) {
+    setPowerBusy(id, action);
+    updateCard(id, { ok: null, state: 'pending' });
+    try {
+      const r = await fetch(`/api/power/${id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      const data = await r.json();
+      if (!data.ok) { toast(`❌ ${data.error}`, false); setPowerBusy(id, null); pollUntilStable(id, null); return; }
+      toast(`✅ ${id}: ${action}`);
+      if (data.status) updateCard(id, data.status);
+      await pollUntilStable(id, data.status?.state);
+    } catch(e) { toast(`❌ ${e}`, false); }
+    finally { setPowerBusy(id, null); }
+  }
+
+  async function pollUntilStable(id, currentState) {
+    const TRANS = new Set(['starting','stopping','pending']);
+    for (let i = 0; i < 8; i++) {
+      await new Promise(r => setTimeout(r, 2000));
       try {
         const r = await fetch(`/api/status/${id}`);
         const d = await r.json();
         updateCard(id, d);
-        // Якщо стан стабільний — зупиняємось
-        if (d.ok !== null && !TRANSIENT.has(d.state)) break;
-      } catch (_) { break; }
+        if (d.ok !== null && !TRANS.has(d.state)) break;
+      } catch(_) { break; }
     }
+    updateSummary();
   }
 
   // ── CONSOLE COMMAND ──
@@ -627,6 +682,15 @@
     const inp = document.getElementById(`cmd-input-${id}`);
     const cmd = inp.value.trim();
     if (!cmd) return;
+    // Send via WS if connected
+    if (pteroWS[id] && pteroWS[id].readyState === 1) {
+      pteroWS[id].send(JSON.stringify({ event: 'send command', args: [cmd] }));
+      appendConsole(id, `> ${cmd}`, 'info');
+      inp.value = '';
+      toast(`📟 ${cmd}`);
+      return;
+    }
+    // Fallback: HTTP
     inp.value = '';
     try {
       const r = await fetch(`/api/command/${id}`, {
@@ -634,15 +698,16 @@
         body: JSON.stringify({ command: cmd })
       });
       const data = await r.json();
-      if (!data.ok) { toast(`❌ ${id}: ${data.error}`, false); return; }
-      toast(`📟 ${id}: «${cmd}» — виконано`);
+      if (!data.ok) { toast(`❌ ${data.error}`, false); return; }
+      toast(`📟 «${cmd}» — виконано`);
       if (data.status) updateCard(id, data.status);
-    } catch (e) { toast(`❌ ${id}: ${e}`, false); }
+    } catch(e) { toast(`❌ ${e}`, false); }
   }
 
   // ── COUNTDOWN ──
+  let countdownVal = 15, countdownInterval;
   function resetCountdown() {
-    countdownVal = 2;
+    countdownVal = 15;
     document.getElementById('countdown').textContent = countdownVal;
   }
   function startCountdown() {
@@ -650,23 +715,17 @@
     countdownInterval = setInterval(() => {
       countdownVal--;
       document.getElementById('countdown').textContent = countdownVal;
-      if (countdownVal <= 0) refreshAll();
+      if (countdownVal <= 0) { refreshAll(); resetCountdown(); }
     }, 1000);
   }
 
-  // ── ADD SERVER MODAL ──
+  // ── ADD MODAL ──
   function openAddModal() {
-    ['f-name','f-icon','f-panel-url','f-api-key','f-server-id'].forEach(id => {
-      document.getElementById(id).value = '';
-    });
+    ['f-name','f-icon','f-panel-url','f-api-key','f-server-id'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
     document.getElementById('add-modal').classList.add('open');
   }
-  function closeAddModal() {
-    document.getElementById('add-modal').classList.remove('open');
-  }
-  function closeAddModalOutside(e) {
-    if (e.target === document.getElementById('add-modal')) closeAddModal();
-  }
+  function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
+  function closeAddModalOutside(e) { if(e.target===document.getElementById('add-modal')) closeAddModal(); }
 
   async function submitAddServer() {
     const name      = document.getElementById('f-name').value.trim();
@@ -674,68 +733,52 @@
     const panel_url = document.getElementById('f-panel-url').value.trim();
     const api_key   = document.getElementById('f-api-key').value.trim();
     const server_id = document.getElementById('f-server-id').value.trim();
-
-    if (!name || !panel_url || !api_key || !server_id) {
-      toast('❌ Заповни всі обов\'язкові поля', false);
-      return;
-    }
-
+    if (!name || !panel_url || !api_key || !server_id) { toast('❌ Заповни всі поля', false); return; }
     try {
       const r = await fetch('/api/servers/add', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, icon, panel_url, api_key, server_id })
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name, icon, panel_url, api_key, server_id})
       });
       const data = await r.json();
       if (!data.ok) { toast(`❌ ${data.error}`, false); return; }
-
       const s = data.server;
       SERVERS.push(s);
-
       const card = renderCard(s.id, s.name, s.icon);
       document.getElementById('cards-grid').appendChild(card);
-
       closeAddModal();
-      toast(`✅ Сервер «${s.name}» додано!`);
-      document.getElementById('sum-total').textContent = SERVERS.length;
-
+      toast(`✅ «${s.name}» додано!`);
+      updateSummary();
+      socket.emit('subscribe', { server_id: s.id });
       pollUntilStable(s.id, 'pending');
     } catch(e) { toast(`❌ ${e}`, false); }
   }
 
-  // ── DELETE SERVER ──
-  function askDelete(id) {
-    document.getElementById(`confirm-${id}`).classList.add('show');
-  }
-  function cancelDelete(id) {
-    document.getElementById(`confirm-${id}`).classList.remove('show');
-  }
+  // ── DELETE ──
+  function askDelete(id)    { document.getElementById(`confirm-${id}`).classList.add('show'); }
+  function cancelDelete(id) { document.getElementById(`confirm-${id}`).classList.remove('show'); }
   async function confirmDelete(id) {
     try {
-      const r = await fetch(`/api/servers/delete/${id}`, { method: 'DELETE' });
+      const r = await fetch(`/api/servers/delete/${id}`, { method:'DELETE' });
       const data = await r.json();
       if (!data.ok) { toast(`❌ ${data.error}`, false); return; }
-
-      const card = document.getElementById(`card-${id}`);
-      if (card) card.remove();
-
+      document.getElementById(`card-${id}`)?.remove();
       SERVERS = SERVERS.filter(s => s.id !== id);
-      document.getElementById('sum-total').textContent = SERVERS.length;
-      toast(`🗑️ Сервер видалено`);
+      if (pteroWS[id]) pteroWS[id].close();
+      updateSummary();
+      toast('🗑️ Сервер видалено');
     } catch(e) { toast(`❌ ${e}`, false); }
   }
 
   // ── INIT ──
-  (function initCards() {
+  (function init() {
     const grid = document.getElementById('cards-grid');
-    grid.innerHTML = '';
     SERVERS.forEach(s => {
       const card = renderCard(s.id, s.name, s.icon);
       grid.appendChild(card);
     });
+    refreshAll();
+    startCountdown();
   })();
-
-  refreshAll();
-  startCountdown();
 </script>
 </body>
 </html>
