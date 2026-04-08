@@ -6,3 +6,4 @@ werkzeug>=3.0
 requests>=2.31
 cryptography>=42.0
 eventlet>=0.36
+gunicorn
