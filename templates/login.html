@@ -30,7 +30,6 @@
       overflow: hidden;
     }
 
-    /* Animated grid background */
     body::before {
       content: '';
       position: fixed; inset: 0;
@@ -46,7 +45,6 @@
       100% { background-position: 48px 48px; }
     }
 
-    /* Glow orbs */
     .orb {
       position: fixed;
       border-radius: 50%;
@@ -57,7 +55,6 @@
     .orb1 { width: 500px; height: 500px; background: var(--accent2); top: -150px; left: -150px; }
     .orb2 { width: 400px; height: 400px; background: var(--accent);  bottom: -100px; right: -100px; }
 
-    /* Card */
     .card {
       position: relative;
       z-index: 10;
@@ -75,10 +72,9 @@
       to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* Logo */
     .logo {
       text-align: center;
-      margin-bottom: 32px;
+      margin-bottom: 36px;
     }
     .logo-icon { font-size: 40px; display: block; margin-bottom: 8px; }
     .logo-title {
@@ -90,36 +86,6 @@
     }
     .logo-sub { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-    /* Tabs */
-    .tabs {
-      display: flex;
-      background: rgba(0,0,0,.3);
-      border-radius: 10px;
-      padding: 4px;
-      margin-bottom: 28px;
-      border: 1px solid var(--border);
-    }
-    .tab-btn {
-      flex: 1;
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: .06em;
-      padding: 9px 0;
-      border-radius: 7px;
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .tab-btn.active {
-      background: rgba(0,229,255,.1);
-      color: var(--accent);
-      border: 1px solid rgba(0,229,255,.25);
-    }
-
-    /* Fields */
     .field { margin-bottom: 18px; }
     .field label {
       display: block;
@@ -148,7 +114,6 @@
     }
     .field input::placeholder { color: var(--muted); }
 
-    /* Submit button */
     .btn-submit {
       width: 100%;
       background: rgba(0,229,255,.1);
@@ -181,7 +146,6 @@
     .btn-submit:active { transform: scale(.98); }
     .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
 
-    /* Error */
     .error-msg {
       background: rgba(255,71,87,.1);
       border: 1px solid rgba(255,71,87,.3);
@@ -194,7 +158,6 @@
     }
     .error-msg.show { display: block; }
 
-    /* Spinner */
     .spin {
       display: inline-block; width: 16px; height: 16px;
       border: 2px solid currentColor; border-top-color: transparent;
@@ -214,92 +177,49 @@
       <div class="logo-sub">Pterodactyl Multi-Host Panel</div>
     </div>
 
-    <div class="tabs">
-      <button class="tab-btn" id="tab-login"    onclick="switchTab('login')">ВХІД</button>
-      <button class="tab-btn" id="tab-register" onclick="switchTab('register')">РЕЄСТРАЦІЯ</button>
-    </div>
-
     <div class="error-msg" id="error-box"></div>
 
-    <!-- Login form -->
-    <div id="form-login">
-      <div class="field">
-        <label>Ім'я користувача</label>
-        <input type="text" id="l-username" placeholder="gamer123" autocomplete="username"
-               onkeydown="if(event.key==='Enter')doLogin()"/>
-      </div>
-      <div class="field">
-        <label>Пароль</label>
-        <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password"
-               onkeydown="if(event.key==='Enter')doLogin()"/>
-      </div>
-      <button class="btn-submit" id="btn-login" onclick="doLogin()">УВІЙТИ</button>
+    <div class="field">
+      <label>Ім'я користувача</label>
+      <input type="text" id="l-username" placeholder="gamer123" autocomplete="username"
+             onkeydown="if(event.key==='Enter')doLogin()"/>
     </div>
-
-    <!-- Register form -->
-    <div id="form-register" style="display:none">
-      <div class="field">
-        <label>Ім'я користувача</label>
-        <input type="text" id="r-username" placeholder="gamer123" autocomplete="username"
-               onkeydown="if(event.key==='Enter')doRegister()"/>
-      </div>
-      <div class="field">
-        <label>Пароль</label>
-        <input type="password" id="r-password" placeholder="мін. 6 символів" autocomplete="new-password"
-               onkeydown="if(event.key==='Enter')doRegister()"/>
-      </div>
-      <div class="field">
-        <label>Підтвердити пароль</label>
-        <input type="password" id="r-password2" placeholder="повтори пароль" autocomplete="new-password"
-               onkeydown="if(event.key==='Enter')doRegister()"/>
-      </div>
-      <button class="btn-submit" id="btn-register" onclick="doRegister()">СТВОРИТИ АКАУНТ</button>
+    <div class="field">
+      <label>Пароль</label>
+      <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')doLogin()"/>
     </div>
+    <button class="btn-submit" id="btn-login" onclick="doLogin()">УВІЙТИ</button>
   </div>
 
 <script>
-  // Set initial tab
-  const initTab = "{{ tab|default('login') }}";
-  switchTab(initTab);
-
   {% if error %}
   showError("{{ error }}");
   {% endif %}
-
-  function switchTab(tab) {
-    document.getElementById('form-login').style.display    = tab === 'login'    ? '' : 'none';
-    document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
-    document.getElementById('tab-login').classList.toggle('active',    tab === 'login');
-    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
-    hideError();
-  }
 
   function showError(msg) {
     const el = document.getElementById('error-box');
     el.textContent = msg;
     el.classList.add('show');
   }
-  function hideError() {
-    document.getElementById('error-box').classList.remove('show');
-  }
 
-  function setBusy(btnId, busy) {
-    const btn = document.getElementById(btnId);
+  function setBusy(busy) {
+    const btn = document.getElementById('btn-login');
     btn.disabled = busy;
     if (busy) {
       btn.dataset.orig = btn.textContent;
       btn.innerHTML = '<span class="spin"></span>';
     } else {
-      btn.textContent = btn.dataset.orig || btn.textContent;
+      btn.textContent = btn.dataset.orig || 'УВІЙТИ';
     }
   }
 
   async function doLogin() {
-    hideError();
+    document.getElementById('error-box').classList.remove('show');
     const username = document.getElementById('l-username').value.trim();
     const password = document.getElementById('l-password').value.trim();
     if (!username || !password) { showError('Заповни всі поля'); return; }
-    setBusy('btn-login', true);
+    setBusy(true);
     try {
       const r = await fetch('/login', {
         method: 'POST',
@@ -310,28 +230,7 @@
       if (d.ok) { window.location = '/'; }
       else showError(d.error || 'Помилка');
     } catch(e) { showError('Помилка мережі'); }
-    finally { setBusy('btn-login', false); }
-  }
-
-  async function doRegister() {
-    hideError();
-    const username  = document.getElementById('r-username').value.trim();
-    const password  = document.getElementById('r-password').value.trim();
-    const password2 = document.getElementById('r-password2').value.trim();
-    if (!username || !password) { showError('Заповни всі поля'); return; }
-    if (password !== password2) { showError('Паролі не збігаються'); return; }
-    setBusy('btn-register', true);
-    try {
-      const r = await fetch('/register', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username, password})
-      });
-      const d = await r.json();
-      if (d.ok) { window.location = '/'; }
-      else showError(d.error || 'Помилка');
-    } catch(e) { showError('Помилка мережі'); }
-    finally { setBusy('btn-register', false); }
+    finally { setBusy(false); }
   }
 </script>
 </body>
