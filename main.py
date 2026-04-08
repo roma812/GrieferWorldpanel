@@ -92,6 +92,7 @@ def ptero_headers(api_key: str) -> dict:
         "Authorization": f"Bearer {api_key}",
         "Accept": "application/json",
         "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
 
 
@@ -99,6 +100,8 @@ def fetch_server_resources(server: dict) -> dict:
     url = f"{server['panel_url']}/api/client/servers/{server['server_id']}/resources"
     try:
         resp = requests.get(url, headers=ptero_headers(server["api_key"]), timeout=10)
+        if resp.status_code == 403:
+            print(f"[403 ERROR] GET {url}\nResponse: {resp.text}\n")
         resp.raise_for_status()
         data = resp.json()
         attrs = data.get("attributes", {})
@@ -151,6 +154,8 @@ def send_power_action(server: dict, action: str) -> dict:
             json={"signal": action},
             timeout=10,
         )
+        if resp.status_code == 403:
+            print(f"[403 ERROR] POST {url}\nResponse: {resp.text}\n")
         if resp.status_code == 204:
             return {"ok": True}
         resp.raise_for_status()
@@ -168,6 +173,8 @@ def send_console_command(server: dict, command: str) -> dict:
             json={"command": command},
             timeout=10,
         )
+        if resp.status_code == 403:
+            print(f"[403 ERROR] POST {url}\nResponse: {resp.text}\n")
         if resp.status_code == 204:
             return {"ok": True}
         resp.raise_for_status()
